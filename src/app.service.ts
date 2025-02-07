@@ -1,15 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { version, name } from '../package.json';
-import { env } from './shared/config/env';
+import { ConstantKeys } from './shared/config/constant-keys';
 
 @Injectable()
 export class AppService {
-  constructor() {}
+  constructor(
+    @Inject(ConstantKeys.nodeEnv) private readonly environment: string,
+  ) {}
   execute() {
     return {
       version,
       name,
-      environment: env.nodeEnv,
+      environment: this.environment,
       time: new Date().toISOString(),
     };
   }
