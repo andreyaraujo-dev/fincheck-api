@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { LoggerService } from './shared/services/logger/logger.service';
+import { HttpExceptionFilter } from './shared/filters/http-exception.filter';
 
 async function bootstrap() {
   const PORT = process.env.PORT || 3000;
@@ -13,6 +14,7 @@ async function bootstrap() {
   const loggerService = new LoggerService();
   loggerService.setContext('Server');
   app.useLogger(loggerService);
+  app.useGlobalFilters(new HttpExceptionFilter(loggerService))
 
   await app.listen(PORT, () => {
     loggerService.log(`🚀 Listen on ${PUBLIC_URL}:${PORT}`);

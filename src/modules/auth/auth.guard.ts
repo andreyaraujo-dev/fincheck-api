@@ -1,4 +1,5 @@
 import {
+  CanActivate,
   ExecutionContext,
   Inject,
   Injectable,
@@ -8,17 +9,14 @@ import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 import { Reflector } from '@nestjs/core';
 import { ConstantKeys } from '../../shared/config/constant-keys';
-import { AuthGuard as AuthGuardPassport } from '@nestjs/passport';
 
 @Injectable()
-export class AuthGuard extends AuthGuardPassport('jwt') {
+export class AuthGuard implements CanActivate {
   constructor(
     @Inject(ConstantKeys.jwtSecret) private readonly jwtSecret: string,
     private readonly jwtService: JwtService,
     private readonly reflector: Reflector,
-  ) {
-    super();
-  }
+  ) {}
 
   async canActivate(context: ExecutionContext) {
     const isPublic = this.reflector.getAllAndOverride<boolean>('IS_PUBLIC', [

@@ -3,13 +3,11 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtModule } from '@nestjs/jwt';
 import { ConstantKeys } from '../../shared/config/constant-keys';
+import { APP_GUARD } from '@nestjs/core';
 import { AuthGuard } from './auth.guard';
-import { AuthStrategy } from './auth.strategy';
-import { PassportModule } from '@nestjs/passport';
 
 @Module({
   imports: [
-    PassportModule,
     JwtModule.registerAsync({
       inject: [ConstantKeys.jwtSecret],
       useFactory: async (jwtSecret: string) => ({
@@ -20,6 +18,12 @@ import { PassportModule } from '@nestjs/passport';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, AuthGuard, AuthStrategy],
+  providers: [
+    AuthService,
+    {
+      provide: APP_GUARD,
+      useClass: AuthGuard,
+    },
+  ],
 })
 export class AuthModule {}
