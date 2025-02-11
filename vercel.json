@@ -6,7 +6,6 @@
       "use": "@vercel/node"
     }
   ],
-  "buildCommand": "yarn prisma generate && nest build",
   "routes": [
     {
       "src": "/(.*)",
