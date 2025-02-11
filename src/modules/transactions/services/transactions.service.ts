@@ -23,6 +23,7 @@ export class TransactionsService {
       year: number;
       bankAccountId?: string;
       type?: TransactionType;
+      isPaid?: boolean;
     },
   ) {
     return this.transactionsRepository.findMany({
@@ -30,6 +31,7 @@ export class TransactionsService {
         userId: userId,
         bankAccountId: filters.bankAccountId,
         type: filters.type,
+        isPaid: filters.isPaid,
         date: {
           gte: new Date(Date.UTC(filters.year, filters.month)),
           lt: new Date(Date.UTC(filters.year, filters.month + 1)),
@@ -66,7 +68,7 @@ export class TransactionsService {
     transactionId: string,
     updateTransactionDto: UpdateTransactionDto,
   ) {
-    const { name, type, date, value, bankAccountId, categoryId } =
+    const { name, type, date, value, bankAccountId, categoryId, isPaid } =
       updateTransactionDto;
 
     await this.validateEntitiesOwnership({
@@ -85,6 +87,7 @@ export class TransactionsService {
         value,
         bankAccountId,
         categoryId,
+        isPaid,
       },
     });
   }

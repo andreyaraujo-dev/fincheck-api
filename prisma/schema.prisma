@@ -76,6 +76,7 @@ model Transaction {
   value         Float
   date          DateTime
   type          TransactionType
+  isPaid        Boolean?        @default(false) @map("is_paid")
 
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   bankAccount BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)

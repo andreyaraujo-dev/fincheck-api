@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsNotEmpty,
@@ -38,4 +39,8 @@ export class CreateTransactionDto {
   @IsNotEmpty()
   @IsEnum(TransactionType)
   type: TransactionType;
+
+  @IsBoolean()
+  @IsOptional()
+  isPaid?: boolean;
 }

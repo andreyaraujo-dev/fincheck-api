@@ -11,7 +11,7 @@ import {
   HttpStatus,
   Query,
   ParseIntPipe,
-  ParseEnumPipe,
+  ParseBoolPipe,
 } from '@nestjs/common';
 import { TransactionsService } from './services/transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
@@ -20,6 +20,7 @@ import { ActiveUserId } from '../../shared/decorators/active-user-id';
 import { OptionalParseUuidPipe } from '../../shared/pipes/optional-parse-uuid.pipe';
 import { TransactionType } from './entities/transaction';
 import { OptionalParseEnumPipe } from '../../shared/pipes/optional-parse-enum.pipe';
+import { OptionalParseBooleanPipe } from '../../shared/pipes/optional-parse-boolean.pipe';
 
 @Controller('transactions')
 export class TransactionsController {
@@ -41,12 +42,14 @@ export class TransactionsController {
     @Query('bankAccountId', OptionalParseUuidPipe) bankAccountId?: string,
     @Query('type', new OptionalParseEnumPipe(TransactionType))
     type?: TransactionType,
+    @Query('isPaid', OptionalParseBooleanPipe) isPaid?: boolean,
   ) {
     return this.transactionsService.findAllByUserId(userId, {
       month,
       year,
       bankAccountId,
       type,
+      isPaid,
     });
   }
 
