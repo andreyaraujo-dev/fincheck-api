@@ -45,7 +45,7 @@ export class TransactionsService {
   }
 
   async create(userId: string, createTransactionDto: CreateTransactionDto) {
-    const { name, type, bankAccountId, date, value, categoryId } =
+    const { name, type, bankAccountId, date, value, categoryId, isPaid } =
       createTransactionDto;
 
     await this.validateEntitiesOwnership({ categoryId, userId, bankAccountId });
@@ -59,6 +59,7 @@ export class TransactionsService {
         type,
         date,
         value,
+        isPaid,
       },
     });
   }
