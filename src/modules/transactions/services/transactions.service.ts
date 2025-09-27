@@ -93,6 +93,19 @@ export class TransactionsService {
     });
   }
 
+  async updateStatus(userId: string, transactionId: string) {
+    await this.validateEntitiesOwnership({ userId, transactionId });
+
+    const transaction = await this.transactionsRepository.findFirst({
+      where: { id: transactionId },
+    });
+
+    await this.transactionsRepository.update({
+      where: { id: transactionId },
+      data: { isPaid: !transaction.isPaid },
+    });
+  }
+
   async remove(userId: string, transactionId: string) {
     await this.validateEntitiesOwnership({ userId, transactionId });
 

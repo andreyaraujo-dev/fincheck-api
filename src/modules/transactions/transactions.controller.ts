@@ -11,6 +11,7 @@ import {
   HttpStatus,
   Query,
   ParseIntPipe,
+  Patch,
 } from '@nestjs/common';
 import { TransactionsService } from './services/transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
@@ -68,6 +69,14 @@ export class TransactionsController {
       transactionId,
       updateTransactionDto,
     );
+  }
+
+  @Patch('status/:transactionId')
+  updateStatus(
+    @ActiveUserId() userId: string,
+    @Param('transactionId', ParseUUIDPipe) transactionId: string,
+  ) {
+    return this.transactionsService.updateStatus(userId, transactionId);
   }
 
   @Delete(':transactionId')
