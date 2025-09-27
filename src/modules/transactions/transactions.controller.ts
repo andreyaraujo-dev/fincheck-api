@@ -43,6 +43,7 @@ export class TransactionsController {
     @Query('type', new OptionalParseEnumPipe(TransactionType))
     type?: TransactionType,
     @Query('isPaid', OptionalParseBooleanPipe) isPaid?: boolean,
+    @Query('title') title?: string,
   ) {
     return this.transactionsService.findAllByUserId(userId, {
       month,
@@ -50,6 +51,7 @@ export class TransactionsController {
       bankAccountId,
       type,
       isPaid,
+      title,
     });
   }
 

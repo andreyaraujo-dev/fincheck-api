@@ -29,4 +29,54 @@ export class TransactionsRepository {
   delete(deleteDto: Prisma.TransactionDeleteArgs) {
     return this.prismaService.transaction.delete(deleteDto);
   }
+
+  async findManyWithNormalizedSearch(params: {
+    userId: string;
+    month: number;
+    year: number;
+    bankAccountId?: string;
+    type?: string;
+    isPaid?: boolean;
+    title?: string;
+  }) {
+    const { userId, month, year, bankAccountId, type, isPaid, title } = params;
+
+    // Construir a query SQL com unaccent
+    let query = `
+      SELECT * FROM transactions
+      WHERE user_id = $1::uuid
+      AND EXTRACT(MONTH FROM date) = $2
+      AND EXTRACT(YEAR FROM date) = $3
+    `;
+
+    const queryParams: any[] = [userId, month, year];
+    let paramIndex = 4;
+
+    if (bankAccountId) {
+      query += ` AND bank_account_id = $${paramIndex}::uuid`;
+      queryParams.push(bankAccountId);
+      paramIndex++;
+    }
+
+    if (type) {
+      query += ` AND type = $${paramIndex}::transaction_type`;
+      queryParams.push(type);
+      paramIndex++;
+    }
+
+    if (isPaid !== undefined) {
+      query += ` AND is_paid = $${paramIndex}`;
+      queryParams.push(isPaid);
+      paramIndex++;
+    }
+
+    if (title) {
+      query += ` AND unaccent(LOWER(name)) LIKE unaccent(LOWER($${paramIndex}))`;
+      queryParams.push(`%${title}%`);
+    }
+
+    query += ` ORDER BY date DESC`;
+
+    return this.prismaService.$queryRawUnsafe(query, ...queryParams);
+  }
 }

@@ -24,19 +24,17 @@ export class TransactionsService {
       bankAccountId?: string;
       type?: TransactionType;
       isPaid?: boolean;
+      title?: string;
     },
   ) {
-    return this.transactionsRepository.findMany({
-      where: {
-        userId: userId,
-        bankAccountId: filters.bankAccountId,
-        type: filters.type,
-        isPaid: filters.isPaid,
-        date: {
-          gte: new Date(Date.UTC(filters.year, filters.month)),
-          lt: new Date(Date.UTC(filters.year, filters.month + 1)),
-        },
-      },
+    return this.transactionsRepository.findManyWithNormalizedSearch({
+      userId,
+      month: filters.month,
+      year: filters.year,
+      bankAccountId: filters.bankAccountId,
+      type: filters.type,
+      isPaid: filters.isPaid,
+      title: filters.title,
     });
   }
 
@@ -139,5 +137,22 @@ export class TransactionsService {
       categoryId &&
         this.validateCategoryOwnershipService.validate(userId, categoryId),
     ]);
+  }
+
+  private normalizeText(text: string): string {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+      .replace(/[^\w\s]/g, '') // Remove caracteres especiais
+      .trim();
+  }
+
+  private createSearchRegex(searchText: string): string {
+    const normalized = this.normalizeText(searchText);
+    // Escapa caracteres especiais do regex
+    const escaped = normalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Cria um padrão que ignora acentos e case
+    return `.*${escaped}.*`;
   }
 }
