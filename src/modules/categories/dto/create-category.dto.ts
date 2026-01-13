@@ -1,4 +1,10 @@
-import { IsEnum, IsNotEmpty, IsString } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { TransactionType } from 'src/modules/transactions/entities/transaction';
 
 export class CreateCategoryDto {
@@ -13,4 +19,8 @@ export class CreateCategoryDto {
   @IsEnum(TransactionType)
   @IsNotEmpty()
   type: TransactionType;
+
+  @IsNumber()
+  @IsOptional()
+  budget?: number;
 }

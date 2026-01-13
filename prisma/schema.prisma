@@ -61,6 +61,7 @@ model Category {
   name         String
   icon         String
   type         TransactionType
+  budget       Float?
   user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
 

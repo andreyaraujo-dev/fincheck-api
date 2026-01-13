@@ -30,6 +30,11 @@ export class CategoriesController {
     return this.categoriesService.findAllByUserId(userId);
   }
 
+  @Get('with-transactions')
+  findAllWithTransactions(@ActiveUserId() userId: string) {
+    return this.categoriesService.findAllCategoriesWithTransactionsData(userId);
+  }
+
   @Get(':categoryId')
   findOne(
     @ActiveUserId() userId: string,
