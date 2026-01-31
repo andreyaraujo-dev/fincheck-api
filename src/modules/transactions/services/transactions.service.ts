@@ -6,6 +6,7 @@ import { ValidateBankAccountOwnershipService } from '../../bank-accounts/service
 import { ValidateCategoryOwnershipService } from '../../categories/services/validate-category-ownership.service';
 import { ValidateTransactionOwnershipService } from './validate-transaction-ownership.service';
 import { TransactionType } from '../entities/transaction';
+import { TransactionMapper } from '../mappers/transaction.mapper';
 
 @Injectable()
 export class TransactionsService {
@@ -16,7 +17,7 @@ export class TransactionsService {
     private readonly validateTransactionOwnershipService: ValidateTransactionOwnershipService,
   ) {}
 
-  findAllByUserId(
+  async findAllByUserId(
     userId: string,
     filters: {
       month: number;
@@ -27,15 +28,18 @@ export class TransactionsService {
       title?: string;
     },
   ) {
-    return this.transactionsRepository.findManyWithNormalizedSearch({
-      userId,
-      month: filters.month,
-      year: filters.year,
-      bankAccountId: filters.bankAccountId,
-      type: filters.type,
-      isPaid: filters.isPaid,
-      title: filters.title,
-    });
+    const transactions =
+      await this.transactionsRepository.findManyWithNormalizedSearch({
+        userId,
+        month: filters.month,
+        year: filters.year,
+        bankAccountId: filters.bankAccountId,
+        type: filters.type,
+        isPaid: filters.isPaid,
+        title: filters.title,
+      });
+
+    return TransactionMapper.toDomainMany(transactions as any[]);
   }
 
   findOne(transactionId: string) {

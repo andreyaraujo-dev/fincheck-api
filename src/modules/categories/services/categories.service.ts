@@ -41,7 +41,7 @@ export class CategoriesService {
     >();
 
     for (const transaction of transactions as any[]) {
-      const categoryId = transaction.category_id;
+      const categoryId = transaction.categoryId;
       if (!categoryId) continue;
 
       const current = categorySpendingMap.get(categoryId) || {

@@ -5,6 +5,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { BankAccountsModule } from './modules/bank-accounts/bank-accounts.module';
 import { TransactionsModule } from './modules/transactions/transactions.module';
+import { ReportsModule } from './modules/reports/reports.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SharedModule } from './shared/shared.module';
@@ -19,6 +20,7 @@ import { ConfigModule } from '@nestjs/config';
     CategoriesModule,
     BankAccountsModule,
     TransactionsModule,
+    ReportsModule,
     SharedModule,
   ],
   controllers: [AppController],
