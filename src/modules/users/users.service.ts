@@ -14,4 +14,12 @@ export class UsersService {
       },
     });
   }
+
+  async updateName(userId: string, name: string) {
+    return this.usersRepository.update({
+      where: { id: userId },
+      data: { name },
+      select: { name: true, email: true },
+    });
+  }
 }
