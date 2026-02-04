@@ -19,12 +19,32 @@ model User {
   email    String @unique
   password String
 
-  bankAccounts BankAccount[]
-  categories   Category[]
-  transactions Transaction[]
-  goals        Goal[]
+  bankAccounts  BankAccount[]
+  categories    Category[]
+  transactions  Transaction[]
+  goals         Goal[]
+  subscriptions Subscription[]
 
   @@map("users")
+}
+
+model Subscription {
+  id                 String    @id @default(uuid()) @db.Uuid
+  userId             String    @map("user_id") @db.Uuid
+  isActive           Boolean   @default(true) @map("is_active")
+  isTrial            Boolean   @default(false) @map("is_trial")
+  trialEndsAt        DateTime? @map("trial_ends_at")
+  cancelRequestedAt  DateTime? @map("cancel_requested_at")
+  value              Float
+  startDate          DateTime  @map("start_date")
+  nextRenewalAt      DateTime  @map("next_renewal_at")
+  reactivatedAt      DateTime? @map("reactivated_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
 }
 
 enum BankAccountType {

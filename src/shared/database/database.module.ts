@@ -6,6 +6,7 @@ import { BankAccountsRepository } from './repositories/bank-accounts.repository'
 import { TransactionsRepository } from './repositories/transactions.repository';
 import { GoalsRepository } from './repositories/goals.repository';
 import { GoalOperationsRepository } from './repositories/goal-operations.repository';
+import { SubscriptionsRepository } from './repositories/subscriptions.repository';
 
 @Global()
 @Module({
@@ -17,6 +18,7 @@ import { GoalOperationsRepository } from './repositories/goal-operations.reposit
     TransactionsRepository,
     GoalsRepository,
     GoalOperationsRepository,
+    SubscriptionsRepository,
   ],
   exports: [
     UsersRepository,
@@ -25,6 +27,7 @@ import { GoalOperationsRepository } from './repositories/goal-operations.reposit
     TransactionsRepository,
     GoalsRepository,
     GoalOperationsRepository,
+    SubscriptionsRepository,
   ],
 })
 export class DatabaseModule {}

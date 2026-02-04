@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { SigninDto } from './dtos/signin.dto';
 import { UsersRepository } from '../../shared/database/repositories/users.repository';
+import { SubscriptionsRepository } from '../../shared/database/repositories/subscriptions.repository';
 import { compare, hash } from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { SignupDto } from './dtos/signup.dto';
@@ -14,6 +15,7 @@ import { UpdatePasswordDto } from './dtos/update-password.dto';
 export class AuthService {
   constructor(
     private readonly usersRepository: UsersRepository,
+    private readonly subscriptionsRepository: SubscriptionsRepository,
     private readonly jwtService: JwtService,
   ) {}
 
@@ -27,6 +29,25 @@ export class AuthService {
     const isPasswordValid = await compare(password, user.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException(`Invalid credentials.`);
+    }
+
+    const activeSubscription = await this.subscriptionsRepository.findFirst({
+      where: { userId: user.id, isActive: true },
+    });
+    if (!activeSubscription) {
+      throw new UnauthorizedException(
+        'Assinatura inativa ou inexistente. Assine ou reative para acessar.',
+      );
+    }
+    const now = new Date();
+    const trialExpired =
+      activeSubscription.isTrial &&
+      activeSubscription.trialEndsAt &&
+      activeSubscription.trialEndsAt < now;
+    if (trialExpired) {
+      throw new UnauthorizedException(
+        'Período de trial encerrado. Assine para continuar acessando.',
+      );
     }
 
     const accessToken = await this.generateAccessToken(user.id);
@@ -49,6 +70,16 @@ export class AuthService {
         name,
         email,
         password: hashedPassword,
+        subscriptions: {
+          create: {
+            value: 0,
+            startDate: new Date(),
+            nextRenewalAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            isActive: true,
+            isTrial: true,
+            trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          },
+        },
         categories: {
           createMany: {
             data: [
