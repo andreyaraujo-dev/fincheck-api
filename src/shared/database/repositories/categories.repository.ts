@@ -17,4 +17,12 @@ export class CategoriesRepository {
   findFirst(findFirstDto: Prisma.CategoryFindFirstArgs) {
     return this.prismaService.category.findFirst(findFirstDto);
   }
+
+  update(updateDto: Prisma.CategoryUpdateArgs) {
+    return this.prismaService.category.update(updateDto);
+  }
+
+  delete(deleteDto: Prisma.CategoryDeleteArgs) {
+    return this.prismaService.category.delete(deleteDto);
+  }
 }

@@ -19,11 +19,32 @@ model User {
   email    String @unique
   password String
 
-  bankAccounts BankAccount[]
-  categories   Category[]
-  transactions Transaction[]
+  bankAccounts  BankAccount[]
+  categories    Category[]
+  transactions  Transaction[]
+  goals         Goal[]
+  subscriptions Subscription[]
 
   @@map("users")
+}
+
+model Subscription {
+  id                 String    @id @default(uuid()) @db.Uuid
+  userId             String    @map("user_id") @db.Uuid
+  isActive           Boolean   @default(true) @map("is_active")
+  isTrial            Boolean   @default(false) @map("is_trial")
+  trialEndsAt        DateTime? @map("trial_ends_at")
+  cancelRequestedAt  DateTime? @map("cancel_requested_at")
+  value              Float
+  startDate          DateTime  @map("start_date")
+  nextRenewalAt      DateTime  @map("next_renewal_at")
+  reactivatedAt      DateTime? @map("reactivated_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
 }
 
 enum BankAccountType {
@@ -42,8 +63,9 @@ model BankAccount {
   color          String
   type           BankAccountType
 
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactions Transaction[]
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions   Transaction[]
+  goalOperations GoalOperation[]
 
   @@map("bank_accounts")
 }
@@ -61,10 +83,85 @@ model Category {
   name         String
   icon         String
   type         TransactionType
+  budget       Float?
   user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions Transaction[]
+  goals        Goal[]
 
   @@map("categories")
+}
+
+enum GoalStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+
+  @@map("goal_status")
+}
+
+enum GoalImportance {
+  LOW
+  MEDIUM
+  HIGH
+
+  @@map("goal_importance")
+}
+
+enum GoalPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+
+  @@map("goal_priority")
+}
+
+enum GoalOperationType {
+  DEPOSIT
+  WITHDRAW
+  MANUAL
+
+  @@map("goal_operation_type")
+}
+
+model Goal {
+  id           String         @id @default(uuid()) @db.Uuid
+  userId       String         @map("user_id") @db.Uuid
+  categoryId   String         @map("category_id") @db.Uuid
+  name         String
+  description  String?
+  targetValue  Float          @map("target_value")
+  currentValue Float          @default(0) @map("current_value")
+  dueDate      DateTime       @map("due_date")
+  status       GoalStatus     @default(PENDING)
+  importance   GoalImportance @default(MEDIUM)
+  priority     GoalPriority   @default(MEDIUM)
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category   Category        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  operations GoalOperation[]
+
+  @@map("goals")
+}
+
+model GoalOperation {
+  id            String            @id @default(uuid()) @db.Uuid
+  goalId        String            @map("goal_id") @db.Uuid
+  type          GoalOperationType
+  value         Float
+  bankAccountId String?           @map("bank_account_id") @db.Uuid
+  transactionId String?           @unique @map("transaction_id") @db.Uuid
+  description   String?
+  createdAt     DateTime          @default(now()) @map("created_at")
+
+  goal        Goal         @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  bankAccount BankAccount? @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@map("goal_operations")
 }
 
 model Transaction {
@@ -78,9 +175,10 @@ model Transaction {
   type          TransactionType
   isPaid        Boolean?        @default(false) @map("is_paid")
 
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
-  category    Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bankAccount   BankAccount    @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  category      Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  goalOperation GoalOperation?
 
   @@map("transactions")
 }

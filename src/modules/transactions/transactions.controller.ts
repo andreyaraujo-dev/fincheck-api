@@ -11,6 +11,7 @@ import {
   HttpStatus,
   Query,
   ParseIntPipe,
+  Patch,
 } from '@nestjs/common';
 import { TransactionsService } from './services/transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
@@ -42,6 +43,7 @@ export class TransactionsController {
     @Query('type', new OptionalParseEnumPipe(TransactionType))
     type?: TransactionType,
     @Query('isPaid', OptionalParseBooleanPipe) isPaid?: boolean,
+    @Query('title') title?: string,
   ) {
     return this.transactionsService.findAllByUserId(userId, {
       month,
@@ -49,6 +51,7 @@ export class TransactionsController {
       bankAccountId,
       type,
       isPaid,
+      title,
     });
   }
 
@@ -68,6 +71,14 @@ export class TransactionsController {
       transactionId,
       updateTransactionDto,
     );
+  }
+
+  @Patch('status/:transactionId')
+  updateStatus(
+    @ActiveUserId() userId: string,
+    @Param('transactionId', ParseUUIDPipe) transactionId: string,
+  ) {
+    return this.transactionsService.updateStatus(userId, transactionId);
   }
 
   @Delete(':transactionId')

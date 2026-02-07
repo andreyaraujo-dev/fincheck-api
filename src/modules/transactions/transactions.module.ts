@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TransactionsService } from './services/transactions.service';
 import { TransactionsController } from './transactions.controller';
 import { BankAccountsModule } from '../bank-accounts/bank-accounts.module';
@@ -6,8 +6,9 @@ import { ValidateTransactionOwnershipService } from './services/validate-transac
 import { CategoriesModule } from '../categories/categories.module';
 
 @Module({
-  imports: [BankAccountsModule, CategoriesModule],
+  imports: [BankAccountsModule, forwardRef(() => CategoriesModule)],
   controllers: [TransactionsController],
   providers: [TransactionsService, ValidateTransactionOwnershipService],
+  exports: [TransactionsService],
 })
 export class TransactionsModule {}
