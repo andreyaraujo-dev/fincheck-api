@@ -30,6 +30,10 @@ export class TransactionsRepository {
     return this.prismaService.transaction.delete(deleteDto);
   }
 
+  deleteMany(deleteManyDto: Prisma.TransactionDeleteManyArgs) {
+    return this.prismaService.transaction.deleteMany(deleteManyDto);
+  }
+
   async findManyWithNormalizedSearch(params: {
     userId: string;
     month: number;

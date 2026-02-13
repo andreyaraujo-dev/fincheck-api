@@ -16,6 +16,7 @@ import { GoalOperationsService } from './services/goal-operations.service';
 import { CreateGoalDto } from './dto/create-goal.dto';
 import { UpdateGoalDto } from './dto/update-goal.dto';
 import { CreateGoalOperationDto } from './dto/create-goal-operation.dto';
+import { DeleteGoalDto } from './dto/delete-goal.dto';
 import { ActiveUserId } from '../../shared/decorators/active-user-id';
 import { OptionalParseUuidPipe } from '../../shared/pipes/optional-parse-uuid.pipe';
 import { OptionalParseEnumPipe } from '../../shared/pipes/optional-parse-enum.pipe';
@@ -83,8 +84,13 @@ export class GoalsController {
   remove(
     @ActiveUserId() userId: string,
     @Param('goalId', ParseUUIDPipe) goalId: string,
+    @Body() deleteGoalDto: DeleteGoalDto,
   ) {
-    return this.goalsService.remove(userId, goalId);
+    return this.goalsService.remove(
+      userId,
+      goalId,
+      deleteGoalDto.deleteTransactions,
+    );
   }
 
   @Get(':goalId/operations')

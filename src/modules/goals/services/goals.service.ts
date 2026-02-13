@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { GoalsRepository } from '../../../shared/database/repositories/goals.repository';
+import { GoalOperationsRepository } from '../../../shared/database/repositories/goal-operations.repository';
+import { TransactionsRepository } from '../../../shared/database/repositories/transactions.repository';
 import { ValidateGoalOwnershipService } from './validate-goal-ownership.service';
 import { ValidateCategoryOwnershipService } from '../../categories/services/validate-category-ownership.service';
 import { CreateGoalDto } from '../dto/create-goal.dto';
@@ -24,6 +26,8 @@ interface GoalsFilters {
 export class GoalsService {
   constructor(
     private readonly goalsRepository: GoalsRepository,
+    private readonly goalOperationsRepository: GoalOperationsRepository,
+    private readonly transactionsRepository: TransactionsRepository,
     private readonly validateGoalOwnershipService: ValidateGoalOwnershipService,
     private readonly validateCategoryOwnershipService: ValidateCategoryOwnershipService,
   ) {}
@@ -144,8 +148,27 @@ export class GoalsService {
     });
   }
 
-  async remove(userId: string, goalId: string) {
+  async remove(userId: string, goalId: string, deleteTransactions?: boolean) {
     await this.validateGoalOwnershipService.validate(userId, goalId);
+
+    if (deleteTransactions) {
+      const operations = await this.goalOperationsRepository.findMany({
+        where: {
+          goalId,
+          transactionId: { not: null },
+        },
+      });
+
+      const transactionIds = operations
+        .map((op) => op.transactionId)
+        .filter((id): id is string => id !== null);
+
+      if (transactionIds.length > 0) {
+        await this.transactionsRepository.deleteMany({
+          where: { id: { in: transactionIds } },
+        });
+      }
+    }
 
     await this.goalsRepository.delete({
       where: { id: goalId },
