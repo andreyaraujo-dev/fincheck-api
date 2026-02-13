@@ -12,22 +12,72 @@ export class ReportsService {
   ) {}
 
   // Métodos auxiliares privados
-  private getDefaultPeriod(): { month: number; year: number } {
+
+  private parseDate(dateStr: string): Date {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+
+  private formatDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  /**
+   * Retorna o intervalo de datas para consulta.
+   * Se startDate e endDate não forem fornecidos, retorna o mês atual.
+   * O end retornado é exclusivo (para uso com `lt` nas queries).
+   */
+  private getDateRange(
+    startDate?: string,
+    endDate?: string,
+  ): { start: Date; end: Date } {
+    if (startDate && endDate) {
+      const start = this.parseDate(startDate);
+      const end = this.parseDate(endDate);
+      // Tornar end exclusivo (+1 dia) para uso nas queries
+      end.setDate(end.getDate() + 1);
+      return { start, end };
+    }
+
+    // Padrão: mês atual
     const now = new Date();
     return {
-      month: now.getMonth() + 1, // JavaScript months são 0-indexed
-      year: now.getFullYear(),
+      start: new Date(now.getFullYear(), now.getMonth(), 1),
+      end: new Date(now.getFullYear(), now.getMonth() + 1, 1),
     };
   }
 
-  private getPreviousPeriod(
-    month: number,
-    year: number,
-  ): { month: number; year: number } {
-    if (month === 1) {
-      return { month: 12, year: year - 1 };
-    }
-    return { month: month - 1, year };
+  /**
+   * Calcula o período anterior com a mesma duração,
+   * imediatamente antes do período atual.
+   */
+  private getPreviousDateRange(
+    start: Date,
+    end: Date,
+  ): { start: Date; end: Date } {
+    const durationMs = end.getTime() - start.getTime();
+    return {
+      start: new Date(start.getTime() - durationMs),
+      end: new Date(start.getTime()),
+    };
+  }
+
+  /**
+   * Retorna as datas formatadas para a resposta (end inclusivo).
+   */
+  private getResponsePeriod(
+    start: Date,
+    end: Date,
+  ): { startDate: string; endDate: string } {
+    const inclusiveEnd = new Date(end);
+    inclusiveEnd.setDate(inclusiveEnd.getDate() - 1);
+    return {
+      startDate: this.formatDate(start),
+      endDate: this.formatDate(inclusiveEnd),
+    };
   }
 
   private calculatePercentageChange(current: number, previous: number): number {
@@ -61,22 +111,25 @@ export class ReportsService {
 
   // Métodos públicos para cada endpoint
 
-  async getIncomeExpenses(userId: string, month?: number, year?: number) {
-    const period = month && year ? { month, year } : this.getDefaultPeriod();
-    const previousPeriod = this.getPreviousPeriod(period.month, period.year);
-
-    // Buscar dados do período atual
-    const currentData = await this.getIncomeExpenseForPeriod(
-      userId,
-      period.month,
-      period.year,
+  async getIncomeExpenses(
+    userId: string,
+    startDate?: string,
+    endDate?: string,
+  ) {
+    const { start, end } = this.getDateRange(startDate, endDate);
+    const { start: prevStart, end: prevEnd } = this.getPreviousDateRange(
+      start,
+      end,
     );
 
+    // Buscar dados do período atual
+    const currentData = await this.getIncomeExpenseForRange(userId, start, end);
+
     // Buscar dados do período anterior
-    const previousData = await this.getIncomeExpenseForPeriod(
+    const previousData = await this.getIncomeExpenseForRange(
       userId,
-      previousPeriod.month,
-      previousPeriod.year,
+      prevStart,
+      prevEnd,
     );
 
     // Calcular comparações
@@ -94,14 +147,12 @@ export class ReportsService {
 
     return {
       currentPeriod: {
-        month: period.month,
-        year: period.year,
+        ...this.getResponsePeriod(start, end),
         income: currentData.income,
         expense: currentData.expense,
       },
       previousPeriod: {
-        month: previousPeriod.month,
-        year: previousPeriod.year,
+        ...this.getResponsePeriod(prevStart, prevEnd),
         income: previousData.income,
         expense: previousData.expense,
       },
@@ -114,19 +165,17 @@ export class ReportsService {
     };
   }
 
-  private async getIncomeExpenseForPeriod(
+  private async getIncomeExpenseForRange(
     userId: string,
-    month: number,
-    year: number,
+    start: Date,
+    end: Date,
   ): Promise<{ income: number; expense: number }> {
-    const { startDate, endDate } = this.getMonthDateRange(month, year);
-
     const result = await this.transactionsRepository.findMany({
       where: {
         userId,
         date: {
-          gte: startDate,
-          lt: endDate,
+          gte: start,
+          lt: end,
         },
         isPaid: true,
       },
@@ -172,16 +221,9 @@ export class ReportsService {
     // Calcular saldo para cada mês
     const monthlyBalances = await Promise.all(
       periods.map(async (period) => {
-        const { income, expense } = await this.getIncomeExpenseForPeriod(
-          userId,
-          period.month,
-          period.year,
-        );
-
-        // Para simplificar, vamos calcular o saldo acumulado até aquele mês
-        // Buscar todas as transações até o final daquele mês
         const { endDate } = this.getMonthDateRange(period.month, period.year);
 
+        // Buscar todas as transações até o final daquele mês
         const allTransactionsUntilMonth =
           await this.transactionsRepository.findMany({
             where: {
@@ -235,16 +277,19 @@ export class ReportsService {
     };
   }
 
-  async getSavingsRate(userId: string, month?: number, year?: number) {
-    const period = month && year ? { month, year } : this.getDefaultPeriod();
-    const previousPeriod = this.getPreviousPeriod(period.month, period.year);
+  async getSavingsRate(
+    userId: string,
+    startDate?: string,
+    endDate?: string,
+  ) {
+    const { start, end } = this.getDateRange(startDate, endDate);
+    const { start: prevStart, end: prevEnd } = this.getPreviousDateRange(
+      start,
+      end,
+    );
 
     // Calcular dados do período atual
-    const currentData = await this.getIncomeExpenseForPeriod(
-      userId,
-      period.month,
-      period.year,
-    );
+    const currentData = await this.getIncomeExpenseForRange(userId, start, end);
 
     const saved = currentData.income - currentData.expense;
     const savingsRate =
@@ -253,10 +298,10 @@ export class ReportsService {
         : 0;
 
     // Calcular dados do período anterior
-    const previousData = await this.getIncomeExpenseForPeriod(
+    const previousData = await this.getIncomeExpenseForRange(
       userId,
-      previousPeriod.month,
-      previousPeriod.year,
+      prevStart,
+      prevEnd,
     );
 
     const previousSaved = previousData.income - previousData.expense;
@@ -268,10 +313,7 @@ export class ReportsService {
     const rateChange = savingsRate - previousRate;
 
     return {
-      period: {
-        month: period.month,
-        year: period.year,
-      },
+      period: this.getResponsePeriod(start, end),
       income: currentData.income,
       expense: currentData.expense,
       saved: Number(saved.toFixed(2)),
@@ -284,12 +326,12 @@ export class ReportsService {
     };
   }
 
-  async getExpensesByCategory(userId: string, month?: number, year?: number) {
-    const period = month && year ? { month, year } : this.getDefaultPeriod();
-    const { startDate, endDate } = this.getMonthDateRange(
-      period.month,
-      period.year,
-    );
+  async getExpensesByCategory(
+    userId: string,
+    startDate?: string,
+    endDate?: string,
+  ) {
+    const { start, end } = this.getDateRange(startDate, endDate);
 
     // Buscar todas as transações de despesa do período
     const expenses = await this.transactionsRepository.findMany({
@@ -297,8 +339,8 @@ export class ReportsService {
         userId,
         type: 'EXPENSE',
         date: {
-          gte: startDate,
-          lt: endDate,
+          gte: start,
+          lt: end,
         },
         isPaid: true,
       },
@@ -367,10 +409,7 @@ export class ReportsService {
       .sort((a, b) => b.amount - a.amount); // Ordenar por valor decrescente
 
     return {
-      period: {
-        month: period.month,
-        year: period.year,
-      },
+      period: this.getResponsePeriod(start, end),
       totalExpenses: Number(totalExpenses.toFixed(2)),
       categories: categoriesData,
     };

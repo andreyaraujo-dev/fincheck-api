@@ -10,7 +10,7 @@ export class ReportsController {
   /**
    * Busca os dados de receitas e despesas do usuário
    * @param userId - The ID of the user
-   * @param query - The query parameters
+   * @param query - The query parameters (startDate, endDate)
    * @returns - The income expenses report
    */
   @Get('income-expenses')
@@ -20,8 +20,8 @@ export class ReportsController {
   ) {
     return this.reportsService.getIncomeExpenses(
       userId,
-      query.month,
-      query.year,
+      query.startDate,
+      query.endDate,
     );
   }
 
@@ -38,7 +38,7 @@ export class ReportsController {
   /**
    * Busca a taxa de poupança do usuário
    * @param userId - The ID of the user
-   * @param query - The query parameters
+   * @param query - The query parameters (startDate, endDate)
    * @returns - The savings rate
    */
   @Get('savings-rate')
@@ -46,9 +46,19 @@ export class ReportsController {
     @ActiveUserId() userId: string,
     @Query() query: ReportsQueryDto,
   ) {
-    return this.reportsService.getSavingsRate(userId, query.month, query.year);
+    return this.reportsService.getSavingsRate(
+      userId,
+      query.startDate,
+      query.endDate,
+    );
   }
 
+  /**
+   * Busca as despesas agrupadas por categoria
+   * @param userId - The ID of the user
+   * @param query - The query parameters (startDate, endDate)
+   * @returns - The expenses by category
+   */
   @Get('expenses-by-category')
   getExpensesByCategory(
     @ActiveUserId() userId: string,
@@ -56,8 +66,8 @@ export class ReportsController {
   ) {
     return this.reportsService.getExpensesByCategory(
       userId,
-      query.month,
-      query.year,
+      query.startDate,
+      query.endDate,
     );
   }
 }
