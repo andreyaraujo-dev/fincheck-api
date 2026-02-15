@@ -9,7 +9,10 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
-import { TransactionType } from '../entities/transaction';
+import {
+  TransactionType,
+  RecurrenceFrequency,
+} from '../entities/transaction';
 
 export class CreateTransactionDto {
   @IsString()
@@ -43,4 +46,12 @@ export class CreateTransactionDto {
   @IsBoolean()
   @IsOptional()
   isPaid?: boolean;
+
+  @IsOptional()
+  @IsEnum(RecurrenceFrequency)
+  recurrenceFrequency?: RecurrenceFrequency;
+
+  @IsOptional()
+  @IsDateString()
+  recurrenceEndDate?: string;
 }

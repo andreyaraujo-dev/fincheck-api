@@ -10,6 +10,9 @@ export class TransactionMapper {
       date: transaction.date,
       type: transaction.type,
       isPaid: transaction.is_paid,
+      recurrenceFrequency: transaction.recurrence_frequency ?? null,
+      recurrenceEndDate: transaction.recurrence_end_date ?? null,
+      recurrenceGroupId: transaction.recurrence_group_id ?? null,
     };
   }
 

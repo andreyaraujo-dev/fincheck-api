@@ -34,6 +34,47 @@ export class TransactionsRepository {
     return this.prismaService.transaction.deleteMany(deleteManyDto);
   }
 
+  createMany(createManyDto: Prisma.TransactionCreateManyArgs) {
+    return this.prismaService.transaction.createMany(createManyDto);
+  }
+
+  updateMany(updateManyDto: Prisma.TransactionUpdateManyArgs) {
+    return this.prismaService.transaction.updateMany(updateManyDto);
+  }
+
+  findManyByGroupId(groupId: string, afterDate?: Date) {
+    return this.prismaService.transaction.findMany({
+      where: {
+        recurrenceGroupId: groupId,
+        ...(afterDate && { date: { gte: afterDate } }),
+      },
+      orderBy: { date: 'asc' },
+    });
+  }
+
+  updateManyByGroupId(
+    groupId: string,
+    afterDate: Date,
+    data: Prisma.TransactionUpdateManyMutationInput,
+  ) {
+    return this.prismaService.transaction.updateMany({
+      where: {
+        recurrenceGroupId: groupId,
+        date: { gte: afterDate },
+      },
+      data,
+    });
+  }
+
+  deleteManyByGroupId(groupId: string, afterDate?: Date) {
+    return this.prismaService.transaction.deleteMany({
+      where: {
+        recurrenceGroupId: groupId,
+        ...(afterDate && { date: { gte: afterDate } }),
+      },
+    });
+  }
+
   async findManyWithNormalizedSearch(params: {
     userId: string;
     month: number;

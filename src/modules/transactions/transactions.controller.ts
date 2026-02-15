@@ -73,6 +73,35 @@ export class TransactionsController {
     );
   }
 
+  @Put('recurring/:transactionId')
+  updateRecurring(
+    @ActiveUserId() userId: string,
+    @Param('transactionId', ParseUUIDPipe) transactionId: string,
+    @Body() updateTransactionDto: UpdateTransactionDto,
+    @Query('scope') scope: 'single' | 'future' = 'single',
+  ) {
+    return this.transactionsService.updateRecurrenceGroup(
+      userId,
+      transactionId,
+      updateTransactionDto,
+      scope,
+    );
+  }
+
+  @Delete('recurring/:transactionId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removeRecurring(
+    @ActiveUserId() userId: string,
+    @Param('transactionId', ParseUUIDPipe) transactionId: string,
+    @Query('scope') scope: 'single' | 'future' = 'single',
+  ) {
+    return this.transactionsService.removeRecurrenceGroup(
+      userId,
+      transactionId,
+      scope,
+    );
+  }
+
   @Patch('status/:transactionId')
   updateStatus(
     @ActiveUserId() userId: string,

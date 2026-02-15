@@ -125,6 +125,15 @@ enum GoalOperationType {
   @@map("goal_operation_type")
 }
 
+enum RecurrenceFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+
+  @@map("recurrence_frequency")
+}
+
 model Goal {
   id           String         @id @default(uuid()) @db.Uuid
   userId       String         @map("user_id") @db.Uuid
@@ -165,15 +174,18 @@ model GoalOperation {
 }
 
 model Transaction {
-  id            String          @id @default(uuid()) @db.Uuid
-  userId        String          @map("user_id") @db.Uuid
-  bankAccountId String          @map("bank_account_id") @db.Uuid
-  categoryId    String?         @map("category_id") @db.Uuid
-  name          String
-  value         Float
-  date          DateTime
-  type          TransactionType
-  isPaid        Boolean?        @default(false) @map("is_paid")
+  id                   String               @id @default(uuid()) @db.Uuid
+  userId               String               @map("user_id") @db.Uuid
+  bankAccountId        String               @map("bank_account_id") @db.Uuid
+  categoryId           String?              @map("category_id") @db.Uuid
+  name                 String
+  value                Float
+  date                 DateTime
+  type                 TransactionType
+  isPaid               Boolean?             @default(false) @map("is_paid")
+  recurrenceFrequency  RecurrenceFrequency? @map("recurrence_frequency")
+  recurrenceEndDate    DateTime?            @map("recurrence_end_date")
+  recurrenceGroupId    String?              @map("recurrence_group_id") @db.Uuid
 
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   bankAccount   BankAccount    @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)

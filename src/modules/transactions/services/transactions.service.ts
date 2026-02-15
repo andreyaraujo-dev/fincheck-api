@@ -1,12 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { CreateTransactionDto } from '../dto/create-transaction.dto';
 import { UpdateTransactionDto } from '../dto/update-transaction.dto';
 import { TransactionsRepository } from '../../../shared/database/repositories/transactions.repository';
 import { ValidateBankAccountOwnershipService } from '../../bank-accounts/services/validate-bank-account-ownership.service';
 import { ValidateCategoryOwnershipService } from '../../categories/services/validate-category-ownership.service';
 import { ValidateTransactionOwnershipService } from './validate-transaction-ownership.service';
-import { TransactionType } from '../entities/transaction';
+import { TransactionType, RecurrenceFrequency } from '../entities/transaction';
 import { TransactionMapper } from '../mappers/transaction.mapper';
+
+const DEFAULT_RECURRENCE_MONTHS = 12;
 
 @Injectable()
 export class TransactionsService {
@@ -47,10 +50,34 @@ export class TransactionsService {
   }
 
   async create(userId: string, createTransactionDto: CreateTransactionDto) {
-    const { name, type, bankAccountId, date, value, categoryId, isPaid } =
-      createTransactionDto;
+    const {
+      name,
+      type,
+      bankAccountId,
+      date,
+      value,
+      categoryId,
+      isPaid,
+      recurrenceFrequency,
+      recurrenceEndDate,
+    } = createTransactionDto;
 
     await this.validateEntitiesOwnership({ categoryId, userId, bankAccountId });
+
+    if (recurrenceFrequency) {
+      return this.createRecurringTransactions({
+        userId,
+        bankAccountId,
+        categoryId,
+        name,
+        type,
+        date,
+        value,
+        isPaid,
+        recurrenceFrequency,
+        recurrenceEndDate,
+      });
+    }
 
     return this.transactionsRepository.create({
       data: {
@@ -95,6 +122,112 @@ export class TransactionsService {
     });
   }
 
+  async updateRecurrenceGroup(
+    userId: string,
+    transactionId: string,
+    updateTransactionDto: UpdateTransactionDto,
+    scope: 'single' | 'future',
+  ) {
+    await this.validateEntitiesOwnership({ userId, transactionId });
+
+    if (updateTransactionDto.bankAccountId) {
+      await this.validateEntitiesOwnership({
+        userId,
+        bankAccountId: updateTransactionDto.bankAccountId,
+      });
+    }
+
+    if (updateTransactionDto.categoryId) {
+      await this.validateEntitiesOwnership({
+        userId,
+        categoryId: updateTransactionDto.categoryId,
+      });
+    }
+
+    const transaction = await this.transactionsRepository.findFirst({
+      where: { id: transactionId },
+    });
+
+    if (!transaction) {
+      throw new NotFoundException('Transaction not found');
+    }
+
+    if (scope === 'single') {
+      const { name, type, value, bankAccountId, categoryId, isPaid } =
+        updateTransactionDto;
+
+      return this.transactionsRepository.update({
+        where: { id: transactionId },
+        data: {
+          name,
+          type,
+          value,
+          bankAccountId,
+          categoryId,
+          isPaid,
+        },
+      });
+    }
+
+    // scope === 'future': atualizar esta e todas as futuras do grupo
+    if (!transaction.recurrenceGroupId) {
+      throw new NotFoundException(
+        'Transaction does not belong to a recurrence group',
+      );
+    }
+
+    const { name, type, value, bankAccountId, categoryId, isPaid } =
+      updateTransactionDto;
+
+    const data: Record<string, any> = {};
+    if (name !== undefined) data.name = name;
+    if (type !== undefined) data.type = type;
+    if (value !== undefined) data.value = value;
+    if (bankAccountId !== undefined) data.bankAccountId = bankAccountId;
+    if (categoryId !== undefined) data.categoryId = categoryId;
+    if (isPaid !== undefined) data.isPaid = isPaid;
+
+    return this.transactionsRepository.updateManyByGroupId(
+      transaction.recurrenceGroupId,
+      transaction.date,
+      data,
+    );
+  }
+
+  async removeRecurrenceGroup(
+    userId: string,
+    transactionId: string,
+    scope: 'single' | 'future',
+  ) {
+    await this.validateEntitiesOwnership({ userId, transactionId });
+
+    const transaction = await this.transactionsRepository.findFirst({
+      where: { id: transactionId },
+    });
+
+    if (!transaction) {
+      throw new NotFoundException('Transaction not found');
+    }
+
+    if (scope === 'single') {
+      return this.transactionsRepository.delete({
+        where: { id: transactionId },
+      });
+    }
+
+    // scope === 'future': deletar esta e todas as futuras do grupo
+    if (!transaction.recurrenceGroupId) {
+      throw new NotFoundException(
+        'Transaction does not belong to a recurrence group',
+      );
+    }
+
+    return this.transactionsRepository.deleteManyByGroupId(
+      transaction.recurrenceGroupId,
+      transaction.date,
+    );
+  }
+
   async updateStatus(userId: string, transactionId: string) {
     await this.validateEntitiesOwnership({ userId, transactionId });
 
@@ -114,6 +247,113 @@ export class TransactionsService {
     await this.transactionsRepository.delete({
       where: { id: transactionId },
     });
+  }
+
+  private async createRecurringTransactions(params: {
+    userId: string;
+    bankAccountId: string;
+    categoryId?: string;
+    name: string;
+    type: TransactionType;
+    date: string;
+    value: number;
+    isPaid?: boolean;
+    recurrenceFrequency: RecurrenceFrequency;
+    recurrenceEndDate?: string;
+  }) {
+    const {
+      userId,
+      bankAccountId,
+      categoryId,
+      name,
+      type,
+      date,
+      value,
+      isPaid,
+      recurrenceFrequency,
+      recurrenceEndDate,
+    } = params;
+
+    const recurrenceGroupId = randomUUID();
+    const startDate = new Date(date);
+
+    const maxEndDate = new Date(startDate);
+    maxEndDate.setMonth(maxEndDate.getMonth() + DEFAULT_RECURRENCE_MONTHS);
+
+    const parsedEndDate = recurrenceEndDate
+      ? new Date(recurrenceEndDate)
+      : null;
+
+    // Se recurrenceEndDate foi informado, ajustar para o fim do dia para incluir o último mês
+    if (parsedEndDate) {
+      parsedEndDate.setHours(23, 59, 59, 999);
+    }
+
+    const endDate = parsedEndDate
+      ? new Date(Math.min(parsedEndDate.getTime(), maxEndDate.getTime()))
+      : maxEndDate;
+
+    const dates = this.generateRecurrenceDates(
+      startDate,
+      recurrenceFrequency,
+      endDate,
+    );
+
+    const transactionsData = dates.map((d, index) => ({
+      userId,
+      bankAccountId,
+      categoryId,
+      name,
+      type,
+      date: d,
+      value,
+      // Apenas a primeira transação (mês atual) respeita o isPaid enviado;
+      // todas as futuras são criadas como não pagas
+      isPaid: index === 0 ? (isPaid ?? false) : false,
+      recurrenceFrequency,
+      recurrenceEndDate: parsedEndDate,
+      recurrenceGroupId,
+    }));
+
+    await this.transactionsRepository.createMany({
+      data: transactionsData,
+    });
+
+    // Retornar a primeira transação criada
+    return this.transactionsRepository.findFirst({
+      where: { recurrenceGroupId },
+      orderBy: { date: 'asc' },
+    });
+  }
+
+  private generateRecurrenceDates(
+    startDate: Date,
+    frequency: RecurrenceFrequency,
+    endDate: Date,
+  ): Date[] {
+    const dates: Date[] = [];
+    const current = new Date(startDate);
+
+    while (current <= endDate) {
+      dates.push(new Date(current));
+
+      switch (frequency) {
+        case RecurrenceFrequency.DAILY:
+          current.setDate(current.getDate() + 1);
+          break;
+        case RecurrenceFrequency.WEEKLY:
+          current.setDate(current.getDate() + 7);
+          break;
+        case RecurrenceFrequency.MONTHLY:
+          current.setMonth(current.getMonth() + 1);
+          break;
+        case RecurrenceFrequency.YEARLY:
+          current.setFullYear(current.getFullYear() + 1);
+          break;
+      }
+    }
+
+    return dates;
   }
 
   private async validateEntitiesOwnership({
