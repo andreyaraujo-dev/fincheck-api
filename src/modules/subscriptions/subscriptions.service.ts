@@ -4,6 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { SubscriptionsRepository } from '../../shared/database/repositories/subscriptions.repository';
+import { UsersRepository } from '../../shared/database/repositories/users.repository';
+import { EmailService } from '../../shared/services/email/email.service';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 
 function addMonths(date: Date, months: number): Date {
@@ -16,6 +18,8 @@ function addMonths(date: Date, months: number): Date {
 export class SubscriptionsService {
   constructor(
     private readonly subscriptionsRepository: SubscriptionsRepository,
+    private readonly usersRepository: UsersRepository,
+    private readonly emailService: EmailService,
   ) {}
 
   async subscribe(userId: string, dto: CreateSubscriptionDto) {
@@ -32,7 +36,7 @@ export class SubscriptionsService {
     const months = dto.billingIntervalMonths ?? 1;
     const nextRenewalAt = addMonths(startDate, months);
 
-    return this.subscriptionsRepository.create({
+    const subscription = await this.subscriptionsRepository.create({
       data: {
         userId,
         value: dto.value,
@@ -42,6 +46,21 @@ export class SubscriptionsService {
         isTrial: false,
       },
     });
+
+    const user = await this.usersRepository.findUnique({
+      where: { id: userId },
+      select: { name: true, email: true },
+    });
+
+    if (user) {
+      this.emailService
+        .sendEmail(user.email, 'Pagamento confirmado!', 'payment-confirmed', {
+          name: user.name,
+        })
+        .catch(() => {});
+    }
+
+    return subscription;
   }
 
   async cancel(userId: string) {

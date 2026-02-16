@@ -1,8 +1,10 @@
 import {
   ConflictException,
+  Inject,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { randomBytes } from 'crypto';
 import { SigninDto } from './dtos/signin.dto';
 import { UsersRepository } from '../../shared/database/repositories/users.repository';
 import { SubscriptionsRepository } from '../../shared/database/repositories/subscriptions.repository';
@@ -10,6 +12,10 @@ import { compare, hash } from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { SignupDto } from './dtos/signup.dto';
 import { UpdatePasswordDto } from './dtos/update-password.dto';
+import { ForgotPasswordDto } from './dtos/forgot-password.dto';
+import { ResetPasswordDto } from './dtos/reset-password.dto';
+import { EmailService } from '../../shared/services/email/email.service';
+import { ConstantKeys } from '../../shared/config/constant-keys';
 
 @Injectable()
 export class AuthService {
@@ -17,6 +23,9 @@ export class AuthService {
     private readonly usersRepository: UsersRepository,
     private readonly subscriptionsRepository: SubscriptionsRepository,
     private readonly jwtService: JwtService,
+    private readonly emailService: EmailService,
+    @Inject(ConstantKeys.appUrl)
+    private readonly appUrl: string,
   ) {}
 
   async signin(signinDto: SigninDto) {
@@ -137,6 +146,10 @@ export class AuthService {
       },
     });
 
+    this.emailService
+      .sendEmail(email, 'Bem-vindo ao myCash!', 'welcome', { name })
+      .catch(() => {});
+
     const accessToken = await this.generateAccessToken(user.id);
 
     return { accessToken };
@@ -163,6 +176,68 @@ export class AuthService {
     await this.usersRepository.update({
       where: { id: userId },
       data: { password: hashedPassword },
+    });
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const user = await this.usersRepository.findUnique({
+      where: { email: dto.email },
+      select: { id: true, name: true, email: true },
+    });
+
+    if (!user) {
+      return;
+    }
+
+    const token = randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000);
+
+    await this.usersRepository.update({
+      where: { id: user.id },
+      data: {
+        passwordResetToken: token,
+        passwordResetExpires: expires,
+      },
+    });
+
+    const resetLink = `${this.appUrl}/reset-password?token=${token}`;
+
+    this.emailService
+      .sendEmail(
+        user.email,
+        'Recuperação de senha — myCash',
+        'password-reset',
+        {
+          name: user.name,
+          resetLink,
+        },
+      )
+      .catch(() => {});
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const user = await this.usersRepository.findFirst({
+      where: {
+        passwordResetToken: dto.token,
+        passwordResetExpires: { gte: new Date() },
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException(
+        'Token inválido ou expirado. Solicite uma nova recuperação de senha.',
+      );
+    }
+
+    const hashedPassword = await hash(dto.newPassword, 12);
+
+    await this.usersRepository.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        passwordResetToken: null,
+        passwordResetExpires: null,
+      },
     });
   }
 
