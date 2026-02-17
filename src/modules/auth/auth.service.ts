@@ -239,6 +239,15 @@ export class AuthService {
         passwordResetExpires: null,
       },
     });
+
+    this.emailService
+      .sendEmail(
+        user.email,
+        'Sua senha foi redefinida — myCash',
+        'password-changed',
+        { name: user.name },
+      )
+      .catch(() => {});
   }
 
   async deleteAccount(userId: string, password: string) {
