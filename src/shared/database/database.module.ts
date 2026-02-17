@@ -7,6 +7,8 @@ import { TransactionsRepository } from './repositories/transactions.repository';
 import { GoalsRepository } from './repositories/goals.repository';
 import { GoalOperationsRepository } from './repositories/goal-operations.repository';
 import { SubscriptionsRepository } from './repositories/subscriptions.repository';
+import { NotificationsRepository } from './repositories/notifications.repository';
+import { NotificationReadsRepository } from './repositories/notification-reads.repository';
 
 @Global()
 @Module({
@@ -19,6 +21,8 @@ import { SubscriptionsRepository } from './repositories/subscriptions.repository
     GoalsRepository,
     GoalOperationsRepository,
     SubscriptionsRepository,
+    NotificationsRepository,
+    NotificationReadsRepository,
   ],
   exports: [
     UsersRepository,
@@ -28,6 +32,8 @@ import { SubscriptionsRepository } from './repositories/subscriptions.repository
     GoalsRepository,
     GoalOperationsRepository,
     SubscriptionsRepository,
+    NotificationsRepository,
+    NotificationReadsRepository,
   ],
 })
 export class DatabaseModule {}

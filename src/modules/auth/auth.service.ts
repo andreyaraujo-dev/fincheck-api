@@ -14,7 +14,7 @@ import { SignupDto } from './dtos/signup.dto';
 import { UpdatePasswordDto } from './dtos/update-password.dto';
 import { ForgotPasswordDto } from './dtos/forgot-password.dto';
 import { ResetPasswordDto } from './dtos/reset-password.dto';
-import { EmailService } from '../../shared/services/email/email.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ConstantKeys } from '../../shared/config/constant-keys';
 
 @Injectable()
@@ -23,7 +23,7 @@ export class AuthService {
     private readonly usersRepository: UsersRepository,
     private readonly subscriptionsRepository: SubscriptionsRepository,
     private readonly jwtService: JwtService,
-    private readonly emailService: EmailService,
+    private readonly notificationsService: NotificationsService,
     @Inject(ConstantKeys.appUrl)
     private readonly appUrl: string,
   ) {}
@@ -146,9 +146,20 @@ export class AuthService {
       },
     });
 
-    this.emailService
-      .sendEmail(email, 'Bem-vindo ao myCash!', 'welcome', { name })
-      .catch(() => {});
+    this.notificationsService.notify({
+      userId: user.id,
+      type: 'WELCOME',
+      channel: 'BOTH',
+      title: 'Bem-vindo ao myCash!',
+      message:
+        'Sua conta foi criada com sucesso. Aproveite o trial gratuito de 7 dias!',
+      email: {
+        to: email,
+        subject: 'Bem-vindo ao myCash!',
+        template: 'welcome',
+        variables: { name },
+      },
+    });
 
     const accessToken = await this.generateAccessToken(user.id);
 
@@ -202,17 +213,19 @@ export class AuthService {
 
     const resetLink = `${this.appUrl}/reset-password?token=${token}`;
 
-    this.emailService
-      .sendEmail(
-        user.email,
-        'Recuperação de senha — myCash',
-        'password-reset',
-        {
-          name: user.name,
-          resetLink,
-        },
-      )
-      .catch(() => {});
+    this.notificationsService.notify({
+      userId: user.id,
+      type: 'PASSWORD_RESET',
+      channel: 'EMAIL',
+      title: 'Recuperação de senha',
+      message: 'Solicitação de redefinição de senha recebida.',
+      email: {
+        to: user.email,
+        subject: 'Recuperação de senha — myCash',
+        template: 'password-reset',
+        variables: { name: user.name, resetLink },
+      },
+    });
   }
 
   async resetPassword(dto: ResetPasswordDto) {
@@ -240,14 +253,19 @@ export class AuthService {
       },
     });
 
-    this.emailService
-      .sendEmail(
-        user.email,
-        'Sua senha foi redefinida — myCash',
-        'password-changed',
-        { name: user.name },
-      )
-      .catch(() => {});
+    this.notificationsService.notify({
+      userId: user.id,
+      type: 'PASSWORD_CHANGED',
+      channel: 'EMAIL',
+      title: 'Senha redefinida',
+      message: 'Sua senha foi redefinida com sucesso.',
+      email: {
+        to: user.email,
+        subject: 'Sua senha foi redefinida — myCash',
+        template: 'password-changed',
+        variables: { name: user.name },
+      },
+    });
   }
 
   async deleteAccount(userId: string, password: string) {

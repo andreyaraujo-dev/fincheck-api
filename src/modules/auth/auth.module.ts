@@ -5,6 +5,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConstantKeys } from '../../shared/config/constant-keys';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthGuard } from './auth.guard';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { AuthGuard } from './auth.guard';
         signOptions: { expiresIn: '7d' },
       }),
     }),
+    NotificationsModule,
   ],
   controllers: [AuthController],
   providers: [

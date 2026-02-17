@@ -21,11 +21,13 @@ model User {
   passwordResetToken   String?   @map("password_reset_token")
   passwordResetExpires DateTime? @map("password_reset_expires")
 
-  bankAccounts  BankAccount[]
-  categories    Category[]
-  transactions  Transaction[]
-  goals         Goal[]
-  subscriptions Subscription[]
+  bankAccounts      BankAccount[]
+  categories        Category[]
+  transactions      Transaction[]
+  goals             Goal[]
+  subscriptions     Subscription[]
+  notifications     Notification[]
+  notificationReads NotificationRead[]
 
   @@map("users")
 }
@@ -195,4 +197,54 @@ model Transaction {
   goalOperation GoalOperation?
 
   @@map("transactions")
+}
+
+enum NotificationType {
+  WELCOME
+  TRIAL_ENDING
+  PAYMENT_CONFIRMED
+  PASSWORD_RESET
+  PASSWORD_CHANGED
+  GENERAL
+
+  @@map("notification_type")
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  BOTH
+
+  @@map("notification_channel")
+}
+
+model Notification {
+  id        String              @id @default(uuid()) @db.Uuid
+  userId    String?             @map("user_id") @db.Uuid
+  type      NotificationType
+  channel   NotificationChannel
+  title     String
+  message   String
+  metadata  Json?
+  createdAt DateTime            @default(now()) @map("created_at")
+
+  user   User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readBy NotificationRead[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model NotificationRead {
+  id             String   @id @default(uuid()) @db.Uuid
+  notificationId String   @map("notification_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  readAt         DateTime @default(now()) @map("read_at")
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, userId])
+  @@map("notification_reads")
 }

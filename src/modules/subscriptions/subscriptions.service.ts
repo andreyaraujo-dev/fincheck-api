@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { SubscriptionsRepository } from '../../shared/database/repositories/subscriptions.repository';
 import { UsersRepository } from '../../shared/database/repositories/users.repository';
-import { EmailService } from '../../shared/services/email/email.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 
 function addMonths(date: Date, months: number): Date {
@@ -19,7 +19,7 @@ export class SubscriptionsService {
   constructor(
     private readonly subscriptionsRepository: SubscriptionsRepository,
     private readonly usersRepository: UsersRepository,
-    private readonly emailService: EmailService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async subscribe(userId: string, dto: CreateSubscriptionDto) {
@@ -53,11 +53,19 @@ export class SubscriptionsService {
     });
 
     if (user) {
-      this.emailService
-        .sendEmail(user.email, 'Pagamento confirmado!', 'payment-confirmed', {
-          name: user.name,
-        })
-        .catch(() => {});
+      this.notificationsService.notify({
+        userId,
+        type: 'PAYMENT_CONFIRMED',
+        channel: 'BOTH',
+        title: 'Pagamento confirmado!',
+        message: 'Sua assinatura do myCash está ativa.',
+        email: {
+          to: user.email,
+          subject: 'Pagamento confirmado!',
+          template: 'payment-confirmed',
+          variables: { name: user.name },
+        },
+      });
     }
 
     return subscription;
