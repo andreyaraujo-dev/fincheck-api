@@ -1,6 +1,8 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 export class DeleteAccountDto {
+  @ApiProperty({ description: 'Senha atual para confirmar exclusão da conta', example: 'senha1234', minLength: 8 })
   @IsString()
   @IsNotEmpty()
   @MinLength(8)

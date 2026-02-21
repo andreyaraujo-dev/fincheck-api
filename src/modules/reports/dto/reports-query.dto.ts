@@ -1,3 +1,4 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsDateString,
   IsOptional,
@@ -39,10 +40,12 @@ export class IsMaxDateRange implements ValidatorConstraintInterface {
 }
 
 export class ReportsQueryDto {
+  @ApiPropertyOptional({ description: 'Data de início do período (ISO 8601)', example: '2026-01-01' })
   @IsOptional()
   @IsDateString()
   startDate?: string;
 
+  @ApiPropertyOptional({ description: 'Data de fim do período (ISO 8601). Máximo 90 dias após startDate', example: '2026-03-31' })
   @IsOptional()
   @IsDateString()
   @Validate(IsEndDateAfterStartDate)

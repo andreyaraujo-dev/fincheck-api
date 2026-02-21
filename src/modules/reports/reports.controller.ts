@@ -1,19 +1,24 @@
 import { Controller, Get, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ReportsService } from './reports.service';
 import { ReportsQueryDto } from './dto/reports-query.dto';
+import {
+  IncomeExpensesResponseDto,
+  AverageBalanceResponseDto,
+  SavingsRateResponseDto,
+  ExpensesByCategoryResponseDto,
+} from './dto/reports-response.dto';
 import { ActiveUserId } from '../../shared/decorators/active-user-id';
 
+@ApiTags('Reports')
+@ApiBearerAuth()
 @Controller('reports')
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
-  /**
-   * Busca os dados de receitas e despesas do usuário
-   * @param userId - The ID of the user
-   * @param query - The query parameters (startDate, endDate)
-   * @returns - The income expenses report
-   */
   @Get('income-expenses')
+  @ApiOperation({ summary: 'Relatório de receitas e despesas com comparação ao período anterior' })
+  @ApiResponse({ status: 200, description: 'Retorna receitas/despesas do período atual, anterior e variação percentual', type: IncomeExpensesResponseDto })
   getIncomeExpenses(
     @ActiveUserId() userId: string,
     @Query() query: ReportsQueryDto,
@@ -25,23 +30,16 @@ export class ReportsController {
     );
   }
 
-  /**
-   * Busca o saldo médio do usuário
-   * @param userId - The ID of the user
-   * @returns - The average balance
-   */
   @Get('average-balance')
+  @ApiOperation({ summary: 'Saldo médio dos últimos 6 meses' })
+  @ApiResponse({ status: 200, description: 'Retorna saldo médio e balanços mensais', type: AverageBalanceResponseDto })
   getAverageBalance(@ActiveUserId() userId: string) {
     return this.reportsService.getAverageBalance(userId);
   }
 
-  /**
-   * Busca a taxa de poupança do usuário
-   * @param userId - The ID of the user
-   * @param query - The query parameters (startDate, endDate)
-   * @returns - The savings rate
-   */
   @Get('savings-rate')
+  @ApiOperation({ summary: 'Taxa de poupança do período' })
+  @ApiResponse({ status: 200, description: 'Retorna receita, despesa, valor poupado, taxa e comparação com período anterior', type: SavingsRateResponseDto })
   getSavingsRate(
     @ActiveUserId() userId: string,
     @Query() query: ReportsQueryDto,
@@ -53,13 +51,9 @@ export class ReportsController {
     );
   }
 
-  /**
-   * Busca as despesas agrupadas por categoria
-   * @param userId - The ID of the user
-   * @param query - The query parameters (startDate, endDate)
-   * @returns - The expenses by category
-   */
   @Get('expenses-by-category')
+  @ApiOperation({ summary: 'Despesas agrupadas por categoria' })
+  @ApiResponse({ status: 200, description: 'Retorna total de despesas e detalhamento por categoria com percentual e contagem', type: ExpensesByCategoryResponseDto })
   getExpensesByCategory(
     @ActiveUserId() userId: string,
     @Query() query: ReportsQueryDto,
