@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
+import { MfaService } from './services/mfa.service';
 import { JwtModule } from '@nestjs/jwt';
 import { ConstantKeys } from '../../shared/config/constant-keys';
 import { APP_GUARD } from '@nestjs/core';
@@ -22,6 +23,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
   controllers: [AuthController],
   providers: [
     AuthService,
+    MfaService,
     {
       provide: APP_GUARD,
       useClass: AuthGuard,

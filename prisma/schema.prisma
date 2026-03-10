@@ -20,16 +20,34 @@ model User {
   password             String
   passwordResetToken   String?   @map("password_reset_token")
   passwordResetExpires DateTime? @map("password_reset_expires")
+  isMfaEnabled         Boolean   @default(false) @map("is_mfa_enabled")
+  mfaSecret            String?   @map("mfa_secret")
 
-  bankAccounts      BankAccount[]
-  categories        Category[]
-  transactions      Transaction[]
-  goals             Goal[]
-  subscriptions     Subscription[]
-  notifications     Notification[]
+  bankAccounts    BankAccount[]
+  categories      Category[]
+  transactions    Transaction[]
+  goals           Goal[]
+  subscriptions   Subscription[]
+  notifications   Notification[]
   notificationReads NotificationRead[]
+  trustedDevices  TrustedDevice[]
 
   @@map("users")
+}
+
+model TrustedDevice {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  deviceFingerprint String  @map("device_fingerprint")
+  expiresAt       DateTime @map("expires_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceFingerprint])
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("trusted_devices")
 }
 
 model Subscription {

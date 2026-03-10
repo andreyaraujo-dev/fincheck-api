@@ -6,4 +6,10 @@ export class UserResponseDto {
 
   @ApiProperty({ description: 'E-mail do usuário', example: 'joao@email.com' })
   email: string;
+
+  @ApiProperty({
+    description: 'Indica se MFA está habilitado para o usuário',
+    example: false,
+  })
+  isMfaEnabled: boolean;
 }

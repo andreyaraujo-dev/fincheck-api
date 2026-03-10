@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { UsersRepository } from './repositories/users.repository';
+import { TrustedDevicesRepository } from './repositories/trusted-devices.repository';
 import { CategoriesRepository } from './repositories/categories.repository';
 import { BankAccountsRepository } from './repositories/bank-accounts.repository';
 import { TransactionsRepository } from './repositories/transactions.repository';
@@ -15,6 +16,7 @@ import { NotificationReadsRepository } from './repositories/notification-reads.r
   providers: [
     PrismaService,
     UsersRepository,
+    TrustedDevicesRepository,
     CategoriesRepository,
     BankAccountsRepository,
     TransactionsRepository,
@@ -26,6 +28,7 @@ import { NotificationReadsRepository } from './repositories/notification-reads.r
   ],
   exports: [
     UsersRepository,
+    TrustedDevicesRepository,
     CategoriesRepository,
     BankAccountsRepository,
     TransactionsRepository,

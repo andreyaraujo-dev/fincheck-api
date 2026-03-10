@@ -11,6 +11,7 @@ export class UsersService {
       select: {
         name: true,
         email: true,
+        isMfaEnabled: true,
       },
     });
   }
@@ -19,7 +20,7 @@ export class UsersService {
     return this.usersRepository.update({
       where: { id: userId },
       data: { name },
-      select: { name: true, email: true },
+      select: { name: true, email: true, isMfaEnabled: true },
     });
   }
 }

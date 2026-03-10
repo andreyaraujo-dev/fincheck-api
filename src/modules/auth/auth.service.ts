@@ -8,6 +8,7 @@ import { randomBytes } from 'crypto';
 import { SigninDto } from './dtos/signin.dto';
 import { UsersRepository } from '../../shared/database/repositories/users.repository';
 import { SubscriptionsRepository } from '../../shared/database/repositories/subscriptions.repository';
+import { TrustedDevicesRepository } from '../../shared/database/repositories/trusted-devices.repository';
 import { compare, hash } from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { SignupDto } from './dtos/signup.dto';
@@ -22,6 +23,7 @@ export class AuthService {
   constructor(
     private readonly usersRepository: UsersRepository,
     private readonly subscriptionsRepository: SubscriptionsRepository,
+    private readonly trustedDevicesRepository: TrustedDevicesRepository,
     private readonly jwtService: JwtService,
     private readonly notificationsService: NotificationsService,
     @Inject(ConstantKeys.appUrl)
@@ -29,8 +31,15 @@ export class AuthService {
   ) {}
 
   async signin(signinDto: SigninDto) {
-    const { email, password } = signinDto;
-    const user = await this.usersRepository.findUnique({ where: { email } });
+    const { email, password, deviceFingerprint } = signinDto;
+    const user = await this.usersRepository.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        password: true,
+        isMfaEnabled: true,
+      },
+    });
     if (!user) {
       throw new UnauthorizedException(`Invalid credentials.`);
     }
@@ -57,6 +66,22 @@ export class AuthService {
       throw new UnauthorizedException(
         'Período de trial encerrado. Assine para continuar acessando.',
       );
+    }
+
+    if (user.isMfaEnabled) {
+      if (deviceFingerprint) {
+        const trustedDevice =
+          await this.trustedDevicesRepository.findTrusted(
+            user.id,
+            deviceFingerprint,
+          );
+        if (trustedDevice) {
+          const accessToken = await this.generateAccessToken(user.id);
+          return { accessToken };
+        }
+      }
+      const mfaTempToken = await this.generateMfaTempToken(user.id);
+      return { requiresMfa: true as const, mfaTempToken };
     }
 
     const accessToken = await this.generateAccessToken(user.id);
@@ -286,5 +311,12 @@ export class AuthService {
 
   private async generateAccessToken(userId: string): Promise<string> {
     return this.jwtService.signAsync({ sub: userId });
+  }
+
+  private async generateMfaTempToken(userId: string): Promise<string> {
+    return this.jwtService.signAsync(
+      { sub: userId, mfaPending: true },
+      { expiresIn: '5m' },
+    );
   }
 }
