@@ -11,7 +11,10 @@ async function bootstrap() {
   const PORT = process.env.PORT || 3000;
   const PUBLIC_URL = process.env.PUBLIC_URL || '';
 
-  const app = await NestFactory.create(AppModule, { cors: true });
+  const app = await NestFactory.create(AppModule, {
+    cors: true,
+    rawBody: true,
+  });
 
   app.useGlobalPipes(new ValidationPipe());
   const loggerService = new LoggerService();

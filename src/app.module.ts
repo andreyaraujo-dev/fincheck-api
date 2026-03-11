@@ -9,6 +9,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { GoalsModule } from './modules/goals/goals.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { SchedulerModule } from './modules/scheduler/scheduler.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -28,6 +29,7 @@ import { ConfigModule } from '@nestjs/config';
     GoalsModule,
     SubscriptionsModule,
     NotificationsModule,
+    WebhooksModule,
     SchedulerModule,
     SharedModule,
   ],

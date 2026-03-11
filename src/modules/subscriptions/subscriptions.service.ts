@@ -6,6 +6,7 @@ import {
 import { SubscriptionsRepository } from '../../shared/database/repositories/subscriptions.repository';
 import { UsersRepository } from '../../shared/database/repositories/users.repository';
 import { NotificationsService } from '../notifications/notifications.service';
+import { StripeService } from './services/stripe.service';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 
 function addMonths(date: Date, months: number): Date {
@@ -20,6 +21,7 @@ export class SubscriptionsService {
     private readonly subscriptionsRepository: SubscriptionsRepository,
     private readonly usersRepository: UsersRepository,
     private readonly notificationsService: NotificationsService,
+    private readonly stripeService: StripeService,
   ) {}
 
   async subscribe(userId: string, dto: CreateSubscriptionDto) {
@@ -140,5 +142,66 @@ export class SubscriptionsService {
       throw new NotFoundException('Nenhuma assinatura encontrada.');
     }
     return last;
+  }
+
+  async createCheckoutSessionUrl(
+    userId: string,
+    successUrl: string,
+    cancelUrl: string,
+  ): Promise<string> {
+    const user = await this.usersRepository.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+    return this.stripeService.createCheckoutSession(
+      userId,
+      successUrl,
+      cancelUrl,
+      user.email,
+    );
+  }
+
+  async createPortalSessionUrl(
+    userId: string,
+    returnUrl: string,
+  ): Promise<string> {
+    let stripeCustomerId: string | null = null;
+
+    const user = await this.usersRepository.findUnique({
+      where: { id: userId },
+      select: { stripeCustomerId: true },
+    });
+    if (user?.stripeCustomerId) {
+      stripeCustomerId = user.stripeCustomerId;
+    }
+
+    if (!stripeCustomerId) {
+      const subscription = await this.subscriptionsRepository.findFirst({
+        where: { userId },
+        orderBy: { updatedAt: 'desc' },
+      });
+      if (subscription?.stripeSubscriptionId) {
+        stripeCustomerId =
+          await this.stripeService.getCustomerIdFromSubscription(
+            subscription.stripeSubscriptionId,
+          );
+        if (stripeCustomerId) {
+          await this.usersRepository.update({
+            where: { id: userId },
+            data: { stripeCustomerId },
+          });
+        }
+      }
+    }
+
+    if (!stripeCustomerId) {
+      throw new NotFoundException(
+        'Nenhum cliente Stripe encontrado. Complete o checkout primeiro.',
+      );
+    }
+    return this.stripeService.createPortalSession(stripeCustomerId, returnUrl);
   }
 }

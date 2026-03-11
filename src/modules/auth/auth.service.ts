@@ -41,12 +41,12 @@ export class AuthService {
       },
     });
     if (!user) {
-      throw new UnauthorizedException(`Invalid credentials.`);
+      throw new UnauthorizedException('E-mail ou senha inválidos.');
     }
 
     const isPasswordValid = await compare(password, user.password);
     if (!isPasswordValid) {
-      throw new UnauthorizedException(`Invalid credentials.`);
+      throw new UnauthorizedException('E-mail ou senha inválidos.');
     }
 
     const activeSubscription = await this.subscriptionsRepository.findFirst({
@@ -70,11 +70,10 @@ export class AuthService {
 
     if (user.isMfaEnabled) {
       if (deviceFingerprint) {
-        const trustedDevice =
-          await this.trustedDevicesRepository.findTrusted(
-            user.id,
-            deviceFingerprint,
-          );
+        const trustedDevice = await this.trustedDevicesRepository.findTrusted(
+          user.id,
+          deviceFingerprint,
+        );
         if (trustedDevice) {
           const accessToken = await this.generateAccessToken(user.id);
           return { accessToken };
