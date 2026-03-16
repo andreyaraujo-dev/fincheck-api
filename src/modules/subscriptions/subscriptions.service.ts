@@ -1,13 +1,17 @@
 import {
+  BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { SubscriptionsRepository } from '../../shared/database/repositories/subscriptions.repository';
 import { UsersRepository } from '../../shared/database/repositories/users.repository';
+import { PlansRepository } from '../../shared/database/repositories/plans.repository';
 import { NotificationsService } from '../notifications/notifications.service';
 import { StripeService } from './services/stripe.service';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
+import { ConstantKeys } from '../../shared/config/constant-keys';
 
 function addMonths(date: Date, months: number): Date {
   const result = new Date(date);
@@ -20,8 +24,13 @@ export class SubscriptionsService {
   constructor(
     private readonly subscriptionsRepository: SubscriptionsRepository,
     private readonly usersRepository: UsersRepository,
+    private readonly plansRepository: PlansRepository,
     private readonly notificationsService: NotificationsService,
     private readonly stripeService: StripeService,
+    @Inject(ConstantKeys.stripePriceIdBasic)
+    private readonly stripePriceIdBasic: string,
+    @Inject(ConstantKeys.stripePriceIdPremium)
+    private readonly stripePriceIdPremium: string,
   ) {}
 
   async subscribe(userId: string, dto: CreateSubscriptionDto) {
@@ -148,6 +157,7 @@ export class SubscriptionsService {
     userId: string,
     successUrl: string,
     cancelUrl: string,
+    planId?: string,
   ): Promise<string> {
     const user = await this.usersRepository.findUnique({
       where: { id: userId },
@@ -156,12 +166,43 @@ export class SubscriptionsService {
     if (!user) {
       throw new NotFoundException('Usuário não encontrado.');
     }
+    const plan = planId
+      ? await this.plansRepository.findUnique({
+          where: { id: planId },
+          select: { name: true, isActive: true },
+        })
+      : await this.plansRepository.findFirst({
+          where: { isActive: true },
+          orderBy: { price: 'asc' },
+          select: { name: true },
+        });
+    if (!plan || (planId && !plan.isActive)) {
+      throw new NotFoundException('Plano não encontrado.');
+    }
+    const priceId = this.getStripePriceIdForPlanName(plan.name);
+    if (!priceId) {
+      throw new BadRequestException(
+        'Plano não possui preço configurado no Stripe.',
+      );
+    }
     return this.stripeService.createCheckoutSession(
       userId,
       successUrl,
       cancelUrl,
       user.email,
+      priceId,
     );
+  }
+
+  private getStripePriceIdForPlanName(name: string): string | null {
+    const normalized = name.toUpperCase();
+    if (normalized === 'PREMIUM' && this.stripePriceIdPremium) {
+      return this.stripePriceIdPremium;
+    }
+    if (normalized === 'BASIC' && this.stripePriceIdBasic) {
+      return this.stripePriceIdBasic;
+    }
+    return this.stripePriceIdBasic || null;
   }
 
   async createPortalSessionUrl(

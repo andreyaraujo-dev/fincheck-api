@@ -1,5 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
+import { SubscriptionPlan } from '@prisma/client';
 import { ConstantKeys } from '../../shared/config/constant-keys';
 import { SubscriptionsRepository } from '../../shared/database/repositories/subscriptions.repository';
 import { UsersRepository } from '../../shared/database/repositories/users.repository';
@@ -17,9 +19,22 @@ export class WebhooksService {
     private readonly subscriptionsRepository: SubscriptionsRepository,
     private readonly usersRepository: UsersRepository,
     private readonly notificationsService: NotificationsService,
+    private readonly configService: ConfigService,
   ) {
     this.stripe = new Stripe(stripeSecretKey);
     this.webhookSecret = stripeWebhookSecret;
+  }
+
+  private getPlanFromPriceId(priceId: string | undefined): SubscriptionPlan {
+    if (!priceId) return 'BASIC';
+    const basicId = this.configService.get<string>('STRIPE_PRICE_ID_BASIC');
+    const premiumId = this.configService.get<string>('STRIPE_PRICE_ID_PREMIUM');
+    if (premiumId && priceId === premiumId) return 'PREMIUM';
+    if (basicId && priceId === basicId) return 'BASIC';
+    this.logger.debug(
+      `Price ${priceId} not mapped to plan, defaulting to BASIC`,
+    );
+    return 'BASIC';
   }
 
   async handleStripeEvent(
@@ -91,6 +106,8 @@ export class WebhooksService {
 
     const firstItem = stripeSubscription.items.data[0];
     const price = firstItem?.price;
+    const priceId = price && typeof price !== 'string' ? price.id : undefined;
+    const plan = this.getPlanFromPriceId(priceId);
     const value =
       price && typeof price !== 'string' && price.unit_amount
         ? price.unit_amount / 100
@@ -111,6 +128,7 @@ export class WebhooksService {
         where: { id: existingTrialOrActive.id },
         data: {
           stripeSubscriptionId: stripeSubscription.id,
+          plan,
           value,
           startDate,
           nextRenewalAt,
@@ -128,6 +146,7 @@ export class WebhooksService {
         data: {
           userId,
           stripeSubscriptionId: stripeSubscription.id,
+          plan,
           value,
           startDate,
           nextRenewalAt,
@@ -186,7 +205,16 @@ export class WebhooksService {
       return;
     }
 
-    const firstItem = stripeSubscription.items?.data?.[0];
+    const expanded = await this.stripe.subscriptions.retrieve(
+      stripeSubscription.id,
+      {
+        expand: ['items.data.price'],
+      },
+    );
+    const firstItem = expanded.items?.data?.[0];
+    const price = firstItem?.price;
+    const priceId = price && typeof price !== 'string' ? price.id : undefined;
+    const plan = this.getPlanFromPriceId(priceId);
     const nextRenewalAt = new Date(
       (firstItem?.current_period_end ?? stripeSubscription.created) * 1000,
     );
@@ -199,6 +227,7 @@ export class WebhooksService {
     await this.subscriptionsRepository.update({
       where: { id: existing.id },
       data: {
+        plan,
         nextRenewalAt,
         cancelRequestedAt,
         isActive,

@@ -10,6 +10,10 @@ import { GoalOperationsRepository } from './repositories/goal-operations.reposit
 import { SubscriptionsRepository } from './repositories/subscriptions.repository';
 import { NotificationsRepository } from './repositories/notifications.repository';
 import { NotificationReadsRepository } from './repositories/notification-reads.repository';
+import { SharedPersonsRepository } from './repositories/shared-persons.repository';
+import { SharedInvitesRepository } from './repositories/shared-invites.repository';
+import { SharedAccessLogsRepository } from './repositories/shared-access-logs.repository';
+import { PlansRepository } from './repositories/plans.repository';
 
 @Global()
 @Module({
@@ -25,8 +29,13 @@ import { NotificationReadsRepository } from './repositories/notification-reads.r
     SubscriptionsRepository,
     NotificationsRepository,
     NotificationReadsRepository,
+    SharedPersonsRepository,
+    SharedInvitesRepository,
+    SharedAccessLogsRepository,
+    PlansRepository,
   ],
   exports: [
+    PrismaService,
     UsersRepository,
     TrustedDevicesRepository,
     CategoriesRepository,
@@ -37,6 +46,10 @@ import { NotificationReadsRepository } from './repositories/notification-reads.r
     SubscriptionsRepository,
     NotificationsRepository,
     NotificationReadsRepository,
+    SharedPersonsRepository,
+    SharedInvitesRepository,
+    SharedAccessLogsRepository,
+    PlansRepository,
   ],
 })
 export class DatabaseModule {}

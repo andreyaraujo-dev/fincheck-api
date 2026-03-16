@@ -8,6 +8,7 @@ import { randomBytes } from 'crypto';
 import { SigninDto } from './dtos/signin.dto';
 import { UsersRepository } from '../../shared/database/repositories/users.repository';
 import { SubscriptionsRepository } from '../../shared/database/repositories/subscriptions.repository';
+import { SharedPersonsRepository } from '../../shared/database/repositories/shared-persons.repository';
 import { TrustedDevicesRepository } from '../../shared/database/repositories/trusted-devices.repository';
 import { compare, hash } from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
@@ -23,6 +24,7 @@ export class AuthService {
   constructor(
     private readonly usersRepository: UsersRepository,
     private readonly subscriptionsRepository: SubscriptionsRepository,
+    private readonly sharedPersonsRepository: SharedPersonsRepository,
     private readonly trustedDevicesRepository: TrustedDevicesRepository,
     private readonly jwtService: JwtService,
     private readonly notificationsService: NotificationsService,
@@ -49,9 +51,31 @@ export class AuthService {
       throw new UnauthorizedException('E-mail ou senha inválidos.');
     }
 
-    const activeSubscription = await this.subscriptionsRepository.findFirst({
+    let activeSubscription = await this.subscriptionsRepository.findFirst({
       where: { userId: user.id, isActive: true },
     });
+
+    if (!activeSubscription) {
+      const sharedPerson = await this.sharedPersonsRepository.findFirst({
+        where: { userId: user.id, status: 'ACTIVE' },
+      });
+      if (sharedPerson) {
+        const ownerSubscription = await this.subscriptionsRepository.findFirst({
+          where: { userId: sharedPerson.ownerId, isActive: true },
+        });
+        if (ownerSubscription) {
+          const now = new Date();
+          const trialExpired =
+            ownerSubscription.isTrial &&
+            ownerSubscription.trialEndsAt &&
+            ownerSubscription.trialEndsAt < now;
+          if (!trialExpired) {
+            activeSubscription = ownerSubscription;
+          }
+        }
+      }
+    }
+
     if (!activeSubscription) {
       throw new UnauthorizedException(
         'Assinatura inativa ou inexistente. Assine ou reative para acessar.',

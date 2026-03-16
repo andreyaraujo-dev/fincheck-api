@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ReportsService } from './reports.service';
 import { ReportsQueryDto } from './dto/reports-query.dto';
@@ -8,11 +8,13 @@ import {
   SavingsRateResponseDto,
   ExpensesByCategoryResponseDto,
 } from './dto/reports-response.dto';
-import { ActiveUserId } from '../../shared/decorators/active-user-id';
+import { EffectiveAccountId } from '../../shared/decorators/effective-account-id';
+import { EffectiveAccountGuard } from '../../shared/guards/effective-account.guard';
 
 @ApiTags('Reports')
 @ApiBearerAuth()
 @Controller('reports')
+@UseGuards(EffectiveAccountGuard)
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
 
@@ -20,11 +22,11 @@ export class ReportsController {
   @ApiOperation({ summary: 'Relatório de receitas e despesas com comparação ao período anterior' })
   @ApiResponse({ status: 200, description: 'Retorna receitas/despesas do período atual, anterior e variação percentual', type: IncomeExpensesResponseDto })
   getIncomeExpenses(
-    @ActiveUserId() userId: string,
+    @EffectiveAccountId() effectiveOwnerId: string,
     @Query() query: ReportsQueryDto,
   ) {
     return this.reportsService.getIncomeExpenses(
-      userId,
+      effectiveOwnerId,
       query.startDate,
       query.endDate,
     );
@@ -33,19 +35,19 @@ export class ReportsController {
   @Get('average-balance')
   @ApiOperation({ summary: 'Saldo médio dos últimos 6 meses' })
   @ApiResponse({ status: 200, description: 'Retorna saldo médio e balanços mensais', type: AverageBalanceResponseDto })
-  getAverageBalance(@ActiveUserId() userId: string) {
-    return this.reportsService.getAverageBalance(userId);
+  getAverageBalance(@EffectiveAccountId() effectiveOwnerId: string) {
+    return this.reportsService.getAverageBalance(effectiveOwnerId);
   }
 
   @Get('savings-rate')
   @ApiOperation({ summary: 'Taxa de poupança do período' })
   @ApiResponse({ status: 200, description: 'Retorna receita, despesa, valor poupado, taxa e comparação com período anterior', type: SavingsRateResponseDto })
   getSavingsRate(
-    @ActiveUserId() userId: string,
+    @EffectiveAccountId() effectiveOwnerId: string,
     @Query() query: ReportsQueryDto,
   ) {
     return this.reportsService.getSavingsRate(
-      userId,
+      effectiveOwnerId,
       query.startDate,
       query.endDate,
     );
@@ -55,11 +57,11 @@ export class ReportsController {
   @ApiOperation({ summary: 'Despesas agrupadas por categoria' })
   @ApiResponse({ status: 200, description: 'Retorna total de despesas e detalhamento por categoria com percentual e contagem', type: ExpensesByCategoryResponseDto })
   getExpensesByCategory(
-    @ActiveUserId() userId: string,
+    @EffectiveAccountId() effectiveOwnerId: string,
     @Query() query: ReportsQueryDto,
   ) {
     return this.reportsService.getExpensesByCategory(
-      userId,
+      effectiveOwnerId,
       query.startDate,
       query.endDate,
     );

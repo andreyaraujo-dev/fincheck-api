@@ -8,5 +8,6 @@ export enum ConstantKeys {
   appUrl = 'APP_URL',
   stripeSecretKey = 'STRIPE_SECRET_KEY',
   stripeWebhookSecret = 'STRIPE_WEBHOOK_SECRET',
-  stripePriceId = 'STRIPE_PRICE_ID',
+  stripePriceIdBasic = 'STRIPE_PRICE_ID_BASIC',
+  stripePriceIdPremium = 'STRIPE_PRICE_ID_PREMIUM',
 }

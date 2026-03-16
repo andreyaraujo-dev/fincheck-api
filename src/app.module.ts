@@ -11,6 +11,8 @@ import { SubscriptionsModule } from './modules/subscriptions/subscriptions.modul
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { SchedulerModule } from './modules/scheduler/scheduler.module';
+import { PeopleModule } from './modules/people/people.module';
+import { PlansModule } from './modules/plans/plans.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SharedModule } from './shared/shared.module';
@@ -31,6 +33,8 @@ import { ConfigModule } from '@nestjs/config';
     NotificationsModule,
     WebhooksModule,
     SchedulerModule,
+    PeopleModule,
+    PlansModule,
     SharedModule,
   ],
   controllers: [AppController],

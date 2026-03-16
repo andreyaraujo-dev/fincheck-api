@@ -12,13 +12,16 @@ import {
   Query,
   ParseIntPipe,
   Patch,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { TransactionsService } from './services/transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { TransactionResponseDto } from './dto/transaction-response.dto';
-import { ActiveUserId } from '../../shared/decorators/active-user-id';
+import { EffectiveAccountId } from '../../shared/decorators/effective-account-id';
+import { EffectiveAccountGuard } from '../../shared/guards/effective-account.guard';
+import { CanDeleteGuard } from '../../shared/guards/can-delete.guard';
 import { OptionalParseUuidPipe } from '../../shared/pipes/optional-parse-uuid.pipe';
 import { TransactionType } from './entities/transaction';
 import { OptionalParseEnumPipe } from '../../shared/pipes/optional-parse-enum.pipe';
@@ -27,6 +30,7 @@ import { OptionalParseBooleanPipe } from '../../shared/pipes/optional-parse-bool
 @ApiTags('Transactions')
 @ApiBearerAuth()
 @Controller('transactions')
+@UseGuards(EffectiveAccountGuard)
 export class TransactionsController {
   constructor(private readonly transactionsService: TransactionsService) {}
 
@@ -34,10 +38,10 @@ export class TransactionsController {
   @ApiOperation({ summary: 'Criar uma nova transação (única ou recorrente)' })
   @ApiResponse({ status: 201, description: 'Transação criada com sucesso', type: TransactionResponseDto })
   create(
-    @ActiveUserId() userId: string,
+    @EffectiveAccountId() effectiveOwnerId: string,
     @Body() createTransactionDto: CreateTransactionDto,
   ) {
-    return this.transactionsService.create(userId, createTransactionDto);
+    return this.transactionsService.create(effectiveOwnerId, createTransactionDto);
   }
 
   @Get()
@@ -50,7 +54,7 @@ export class TransactionsController {
   @ApiQuery({ name: 'title', required: false, description: 'Buscar por título' })
   @ApiResponse({ status: 200, description: 'Lista de transações do período', type: [TransactionResponseDto] })
   findAll(
-    @ActiveUserId() userId: string,
+    @EffectiveAccountId() effectiveOwnerId: string,
     @Query('month', ParseIntPipe) month: number,
     @Query('year', ParseIntPipe) year: number,
     @Query('bankAccountId', OptionalParseUuidPipe) bankAccountId?: string,
@@ -59,7 +63,7 @@ export class TransactionsController {
     @Query('isPaid', OptionalParseBooleanPipe) isPaid?: boolean,
     @Query('title') title?: string,
   ) {
-    return this.transactionsService.findAllByUserId(userId, {
+    return this.transactionsService.findAllByUserId(effectiveOwnerId, {
       month,
       year,
       bankAccountId,
@@ -83,12 +87,12 @@ export class TransactionsController {
   @ApiResponse({ status: 200, description: 'Transação atualizada com sucesso', type: TransactionResponseDto })
   @ApiResponse({ status: 404, description: 'Transação não encontrada' })
   update(
-    @ActiveUserId() userId: string,
+    @EffectiveAccountId() effectiveOwnerId: string,
     @Param('transactionId', ParseUUIDPipe) transactionId: string,
     @Body() updateTransactionDto: UpdateTransactionDto,
   ) {
     return this.transactionsService.update(
-      userId,
+      effectiveOwnerId,
       transactionId,
       updateTransactionDto,
     );
@@ -101,13 +105,13 @@ export class TransactionsController {
   @ApiResponse({ status: 200, description: 'Transação(ões) recorrente(s) atualizada(s)', type: TransactionResponseDto })
   @ApiResponse({ status: 404, description: 'Transação não encontrada ou sem grupo de recorrência' })
   updateRecurring(
-    @ActiveUserId() userId: string,
+    @EffectiveAccountId() effectiveOwnerId: string,
     @Param('transactionId', ParseUUIDPipe) transactionId: string,
     @Body() updateTransactionDto: UpdateTransactionDto,
     @Query('scope') scope: 'single' | 'future' = 'single',
   ) {
     return this.transactionsService.updateRecurrenceGroup(
-      userId,
+      effectiveOwnerId,
       transactionId,
       updateTransactionDto,
       scope,
@@ -121,13 +125,14 @@ export class TransactionsController {
   @ApiQuery({ name: 'scope', required: false, enum: ['single', 'future'], description: 'Escopo da exclusão: apenas esta ou todas futuras' })
   @ApiResponse({ status: 204, description: 'Transação(ões) recorrente(s) excluída(s)' })
   @ApiResponse({ status: 404, description: 'Transação não encontrada ou sem grupo de recorrência' })
+  @UseGuards(CanDeleteGuard)
   removeRecurring(
-    @ActiveUserId() userId: string,
+    @EffectiveAccountId() effectiveOwnerId: string,
     @Param('transactionId', ParseUUIDPipe) transactionId: string,
     @Query('scope') scope: 'single' | 'future' = 'single',
   ) {
     return this.transactionsService.removeRecurrenceGroup(
-      userId,
+      effectiveOwnerId,
       transactionId,
       scope,
     );
@@ -139,22 +144,23 @@ export class TransactionsController {
   @ApiResponse({ status: 200, description: 'Status de pagamento alternado com sucesso' })
   @ApiResponse({ status: 404, description: 'Transação não encontrada' })
   updateStatus(
-    @ActiveUserId() userId: string,
+    @EffectiveAccountId() effectiveOwnerId: string,
     @Param('transactionId', ParseUUIDPipe) transactionId: string,
   ) {
-    return this.transactionsService.updateStatus(userId, transactionId);
+    return this.transactionsService.updateStatus(effectiveOwnerId, transactionId);
   }
 
   @Delete(':transactionId')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(CanDeleteGuard)
   @ApiOperation({ summary: 'Excluir uma transação' })
   @ApiParam({ name: 'transactionId', description: 'ID da transação (UUID)' })
   @ApiResponse({ status: 204, description: 'Transação excluída com sucesso' })
   @ApiResponse({ status: 404, description: 'Transação não encontrada' })
   remove(
-    @ActiveUserId() userId: string,
+    @EffectiveAccountId() effectiveOwnerId: string,
     @Param('transactionId', ParseUUIDPipe) transactionId: string,
   ) {
-    return this.transactionsService.remove(userId, transactionId);
+    return this.transactionsService.remove(effectiveOwnerId, transactionId);
   }
 }

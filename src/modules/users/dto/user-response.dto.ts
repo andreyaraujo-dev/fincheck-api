@@ -1,4 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { SharedAccessLevel } from '@prisma/client';
 
 export class UserResponseDto {
   @ApiProperty({ description: 'Nome do usuário', example: 'João Silva' })
@@ -12,4 +13,16 @@ export class UserResponseDto {
     example: false,
   })
   isMfaEnabled: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Nível de acesso compartilhado (presente apenas para usuários com acesso compartilhado)',
+    enum: SharedAccessLevel,
+  })
+  sharedAccessLevel?: SharedAccessLevel;
+
+  @ApiProperty({
+    description: 'Indica se o usuário é o dono da conta',
+    example: true,
+  })
+  isAccountOwner: boolean;
 }

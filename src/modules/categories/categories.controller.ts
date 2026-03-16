@@ -7,10 +7,13 @@ import {
   ParseUUIDPipe,
   Post,
   Put,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CategoriesService } from './services/categories.service';
-import { ActiveUserId } from '../../shared/decorators/active-user-id';
+import { EffectiveAccountId } from '../../shared/decorators/effective-account-id';
+import { EffectiveAccountGuard } from '../../shared/guards/effective-account.guard';
+import { CanDeleteGuard } from '../../shared/guards/can-delete.guard';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { CategoryResponseDto, CategoriesWithTransactionsResponseDto } from './dto/category-response.dto';
@@ -18,6 +21,7 @@ import { CategoryResponseDto, CategoriesWithTransactionsResponseDto } from './dt
 @ApiTags('Categories')
 @ApiBearerAuth()
 @Controller('categories')
+@UseGuards(EffectiveAccountGuard)
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
@@ -25,24 +29,24 @@ export class CategoriesController {
   @ApiOperation({ summary: 'Criar uma nova categoria' })
   @ApiResponse({ status: 201, description: 'Categoria criada com sucesso', type: CategoryResponseDto })
   create(
-    @ActiveUserId() userId: string,
+    @EffectiveAccountId() effectiveOwnerId: string,
     @Body() createCategoryDto: CreateCategoryDto,
   ) {
-    return this.categoriesService.create(userId, createCategoryDto);
+    return this.categoriesService.create(effectiveOwnerId, createCategoryDto);
   }
 
   @Get()
   @ApiOperation({ summary: 'Listar todas as categorias do usuário' })
   @ApiResponse({ status: 200, description: 'Lista de categorias', type: [CategoryResponseDto] })
-  findAll(@ActiveUserId() userId: string) {
-    return this.categoriesService.findAllByUserId(userId);
+  findAll(@EffectiveAccountId() effectiveOwnerId: string) {
+    return this.categoriesService.findAllByUserId(effectiveOwnerId);
   }
 
   @Get('with-transactions')
   @ApiOperation({ summary: 'Listar categorias com dados de transações e orçamento' })
   @ApiResponse({ status: 200, description: 'Lista de categorias com resumo de gastos, orçamento e percentual utilizado', type: CategoriesWithTransactionsResponseDto })
-  findAllWithTransactions(@ActiveUserId() userId: string) {
-    return this.categoriesService.findAllCategoriesWithTransactionsData(userId);
+  findAllWithTransactions(@EffectiveAccountId() effectiveOwnerId: string) {
+    return this.categoriesService.findAllCategoriesWithTransactionsData(effectiveOwnerId);
   }
 
   @Get(':categoryId')
@@ -51,10 +55,10 @@ export class CategoriesController {
   @ApiResponse({ status: 200, description: 'Dados da categoria', type: CategoryResponseDto })
   @ApiResponse({ status: 404, description: 'Categoria não encontrada' })
   findOne(
-    @ActiveUserId() userId: string,
+    @EffectiveAccountId() effectiveOwnerId: string,
     @Param('categoryId', ParseUUIDPipe) categoryId: string,
   ) {
-    return this.categoriesService.findOne(userId, categoryId);
+    return this.categoriesService.findOne(effectiveOwnerId, categoryId);
   }
 
   @Put(':categoryId')
@@ -63,22 +67,23 @@ export class CategoriesController {
   @ApiResponse({ status: 200, description: 'Categoria atualizada com sucesso', type: CategoryResponseDto })
   @ApiResponse({ status: 404, description: 'Categoria não encontrada' })
   update(
-    @ActiveUserId() userId: string,
+    @EffectiveAccountId() effectiveOwnerId: string,
     @Param('categoryId', ParseUUIDPipe) categoryId: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
   ) {
-    return this.categoriesService.update(userId, categoryId, updateCategoryDto);
+    return this.categoriesService.update(effectiveOwnerId, categoryId, updateCategoryDto);
   }
 
   @Delete(':categoryId')
+  @UseGuards(CanDeleteGuard)
   @ApiOperation({ summary: 'Excluir uma categoria' })
   @ApiParam({ name: 'categoryId', description: 'ID da categoria (UUID)' })
   @ApiResponse({ status: 200, description: 'Categoria excluída com sucesso' })
   @ApiResponse({ status: 404, description: 'Categoria não encontrada' })
   delete(
-    @ActiveUserId() userId: string,
+    @EffectiveAccountId() effectiveOwnerId: string,
     @Param('categoryId', ParseUUIDPipe) categoryId: string,
   ) {
-    return this.categoriesService.delete(userId, categoryId);
+    return this.categoriesService.delete(effectiveOwnerId, categoryId);
   }
 }

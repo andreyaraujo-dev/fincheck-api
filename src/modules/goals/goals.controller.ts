@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { GoalsService } from './services/goals.service';
@@ -19,7 +20,9 @@ import { UpdateGoalDto } from './dto/update-goal.dto';
 import { CreateGoalOperationDto } from './dto/create-goal-operation.dto';
 import { DeleteGoalDto } from './dto/delete-goal.dto';
 import { GoalResponseDto, GoalOperationResponseDto } from './dto/goal-response.dto';
-import { ActiveUserId } from '../../shared/decorators/active-user-id';
+import { EffectiveAccountId } from '../../shared/decorators/effective-account-id';
+import { EffectiveAccountGuard } from '../../shared/guards/effective-account.guard';
+import { CanDeleteGuard } from '../../shared/guards/can-delete.guard';
 import { OptionalParseUuidPipe } from '../../shared/pipes/optional-parse-uuid.pipe';
 import { OptionalParseEnumPipe } from '../../shared/pipes/optional-parse-enum.pipe';
 import {
@@ -31,6 +34,7 @@ import {
 @ApiTags('Goals')
 @ApiBearerAuth()
 @Controller('goals')
+@UseGuards(EffectiveAccountGuard)
 export class GoalsController {
   constructor(
     private readonly goalsService: GoalsService,
@@ -40,8 +44,8 @@ export class GoalsController {
   @Post()
   @ApiOperation({ summary: 'Criar uma nova meta' })
   @ApiResponse({ status: 201, description: 'Meta criada com sucesso', type: GoalResponseDto })
-  create(@ActiveUserId() userId: string, @Body() createGoalDto: CreateGoalDto) {
-    return this.goalsService.create(userId, createGoalDto);
+  create(@EffectiveAccountId() effectiveOwnerId: string, @Body() createGoalDto: CreateGoalDto) {
+    return this.goalsService.create(effectiveOwnerId, createGoalDto);
   }
 
   @Get()
@@ -55,7 +59,7 @@ export class GoalsController {
   @ApiQuery({ name: 'dueDateTo', required: false, description: 'Data limite máxima (ISO 8601)' })
   @ApiResponse({ status: 200, description: 'Lista de metas com dados da categoria', type: [GoalResponseDto] })
   findAll(
-    @ActiveUserId() userId: string,
+    @EffectiveAccountId() effectiveOwnerId: string,
     @Query('name') name?: string,
     @Query('status', new OptionalParseEnumPipe(GoalStatus)) status?: GoalStatus,
     @Query('categoryId', OptionalParseUuidPipe) categoryId?: string,
@@ -66,7 +70,7 @@ export class GoalsController {
     @Query('dueDateFrom') dueDateFrom?: string,
     @Query('dueDateTo') dueDateTo?: string,
   ) {
-    return this.goalsService.findAllByUserId(userId, {
+    return this.goalsService.findAllByUserId(effectiveOwnerId, {
       name,
       status,
       categoryId,
@@ -83,10 +87,10 @@ export class GoalsController {
   @ApiResponse({ status: 200, description: 'Dados da meta com categoria', type: GoalResponseDto })
   @ApiResponse({ status: 404, description: 'Meta não encontrada' })
   findOne(
-    @ActiveUserId() userId: string,
+    @EffectiveAccountId() effectiveOwnerId: string,
     @Param('goalId', ParseUUIDPipe) goalId: string,
   ) {
-    return this.goalsService.findOne(userId, goalId);
+    return this.goalsService.findOne(effectiveOwnerId, goalId);
   }
 
   @Put(':goalId')
@@ -95,26 +99,27 @@ export class GoalsController {
   @ApiResponse({ status: 200, description: 'Meta atualizada com sucesso', type: GoalResponseDto })
   @ApiResponse({ status: 404, description: 'Meta não encontrada' })
   update(
-    @ActiveUserId() userId: string,
+    @EffectiveAccountId() effectiveOwnerId: string,
     @Param('goalId', ParseUUIDPipe) goalId: string,
     @Body() updateGoalDto: UpdateGoalDto,
   ) {
-    return this.goalsService.update(userId, goalId, updateGoalDto);
+    return this.goalsService.update(effectiveOwnerId, goalId, updateGoalDto);
   }
 
   @Delete(':goalId')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(CanDeleteGuard)
   @ApiOperation({ summary: 'Excluir uma meta' })
   @ApiParam({ name: 'goalId', description: 'ID da meta (UUID)' })
   @ApiResponse({ status: 204, description: 'Meta excluída com sucesso' })
   @ApiResponse({ status: 404, description: 'Meta não encontrada' })
   remove(
-    @ActiveUserId() userId: string,
+    @EffectiveAccountId() effectiveOwnerId: string,
     @Param('goalId', ParseUUIDPipe) goalId: string,
     @Body() deleteGoalDto: DeleteGoalDto,
   ) {
     return this.goalsService.remove(
-      userId,
+      effectiveOwnerId,
       goalId,
       deleteGoalDto.deleteTransactions,
     );
@@ -126,10 +131,10 @@ export class GoalsController {
   @ApiResponse({ status: 200, description: 'Lista de operações com dados da conta bancária', type: [GoalOperationResponseDto] })
   @ApiResponse({ status: 404, description: 'Meta não encontrada' })
   getOperations(
-    @ActiveUserId() userId: string,
+    @EffectiveAccountId() effectiveOwnerId: string,
     @Param('goalId', ParseUUIDPipe) goalId: string,
   ) {
-    return this.goalOperationsService.getOperations(userId, goalId);
+    return this.goalOperationsService.getOperations(effectiveOwnerId, goalId);
   }
 
   @Post(':goalId/operations')
@@ -139,12 +144,12 @@ export class GoalsController {
   @ApiResponse({ status: 400, description: 'Meta cancelada, conta bancária obrigatória ou saldo insuficiente' })
   @ApiResponse({ status: 404, description: 'Meta não encontrada' })
   createOperation(
-    @ActiveUserId() userId: string,
+    @EffectiveAccountId() effectiveOwnerId: string,
     @Param('goalId', ParseUUIDPipe) goalId: string,
     @Body() createOperationDto: CreateGoalOperationDto,
   ) {
     return this.goalOperationsService.createOperation(
-      userId,
+      effectiveOwnerId,
       goalId,
       createOperationDto,
     );

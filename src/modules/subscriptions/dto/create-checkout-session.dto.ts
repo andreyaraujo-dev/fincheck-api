@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsUrl } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsUrl, IsUUID } from 'class-validator';
 
 export class CreateCheckoutSessionDto {
   @ApiProperty({
@@ -17,4 +17,12 @@ export class CreateCheckoutSessionDto {
   @IsUrl({ require_tld: false })
   @IsNotEmpty()
   cancelUrl: string;
+
+  @ApiProperty({
+    description: 'ID do plano de assinatura',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  @IsOptional()
+  @IsUUID()
+  planId?: string;
 }

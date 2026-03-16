@@ -37,6 +37,7 @@ export class SubscriptionsController {
       userId,
       dto.successUrl,
       dto.cancelUrl,
+      dto.planId,
     );
     return { url };
   }

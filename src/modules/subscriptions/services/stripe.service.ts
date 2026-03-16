@@ -6,15 +6,12 @@ import { UsersRepository } from '../../../shared/database/repositories/users.rep
 @Injectable()
 export class StripeService {
   private readonly stripe: Stripe;
-  private readonly priceId: string;
 
   constructor(
     @Inject(ConstantKeys.stripeSecretKey) stripeSecretKey: string,
-    @Inject(ConstantKeys.stripePriceId) stripePriceId: string,
     private readonly usersRepository: UsersRepository,
   ) {
     this.stripe = new Stripe(stripeSecretKey);
-    this.priceId = stripePriceId;
   }
 
   async getOrCreateStripeCustomerId(
@@ -48,6 +45,7 @@ export class StripeService {
     successUrl: string,
     cancelUrl: string,
     email: string,
+    stripePriceId: string,
   ): Promise<string> {
     const stripeCustomerId = await this.getOrCreateStripeCustomerId(
       userId,
@@ -60,7 +58,7 @@ export class StripeService {
       client_reference_id: userId,
       line_items: [
         {
-          price: this.priceId,
+          price: stripePriceId,
           quantity: 1,
         },
       ],
