@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   IsEmail,
   IsNotEmpty,
@@ -26,9 +27,13 @@ export class SigninDto {
 
   @ApiProperty({
     description:
-      'Fingerprint do dispositivo para bypass de MFA quando confiável (30 dias)',
+      'Fingerprint do dispositivo para bypass de MFA quando confiável (30 dias). Aceita deviceFingerprint ou device_fingerprint.',
     example: 'abc123xyz789',
     required: false,
+  })
+  @Transform(({ value, obj }) => {
+    const v = value ?? obj?.device_fingerprint;
+    return typeof v === 'string' ? v.trim() || undefined : undefined;
   })
   @IsString()
   @IsOptional()

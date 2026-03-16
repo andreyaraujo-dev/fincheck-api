@@ -8,25 +8,29 @@ export class TrustedDevicesRepository {
   constructor(private readonly prismaService: PrismaService) {}
 
   findTrusted(userId: string, deviceFingerprint: string) {
+    const normalized = deviceFingerprint?.trim();
+    if (!normalized) return null;
     const now = new Date();
     return this.prismaService.trustedDevice.findFirst({
       where: {
         userId,
-        deviceFingerprint,
+        deviceFingerprint: normalized,
         expiresAt: { gt: now },
       },
     });
   }
 
   create(userId: string, deviceFingerprint: string) {
+    const normalized = deviceFingerprint?.trim();
+    if (!normalized) return null;
     const expiresAt = new Date(Date.now() + THIRTY_DAYS_MS);
     return this.prismaService.trustedDevice.upsert({
       where: {
-        userId_deviceFingerprint: { userId, deviceFingerprint },
+        userId_deviceFingerprint: { userId, deviceFingerprint: normalized },
       },
       create: {
         userId,
-        deviceFingerprint,
+        deviceFingerprint: normalized,
         expiresAt,
       },
       update: { expiresAt },

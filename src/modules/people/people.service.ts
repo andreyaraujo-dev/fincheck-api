@@ -334,6 +334,29 @@ export class PeopleService {
       },
     });
 
+    // Email de boas-vindas para o convidado
+    this.notificationsService.notify({
+      type: 'WELCOME',
+      channel: 'EMAIL',
+      title: 'Bem-vindo ao myCash!',
+      message: 'Sua conta foi ativada com sucesso.',
+      email: {
+        to: sharedPerson.email,
+        subject: 'Bem-vindo ao myCash — Conta ativada',
+        template: 'invite-welcome',
+        variables: { name: sharedPerson.name },
+      },
+    });
+
+    // Notificação no app para o owner: convite aceito pelo convidado
+    this.notificationsService.notify({
+      userId: sharedPerson.ownerId,
+      type: 'GENERAL',
+      channel: 'IN_APP',
+      title: 'Convite aceito',
+      message: `${sharedPerson.name} aceitou seu convite e já pode acessar a conta.`,
+    });
+
     return { message: 'Conta ativada com sucesso. Faça login para acessar.' };
   }
 }

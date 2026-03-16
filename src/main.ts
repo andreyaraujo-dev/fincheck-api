@@ -16,7 +16,12 @@ async function bootstrap() {
     rawBody: true,
   });
 
-  app.useGlobalPipes(new ValidationPipe());
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
+    }),
+  );
   const loggerService = new LoggerService();
   loggerService.setContext('Server');
   app.useLogger(loggerService);
