@@ -13,8 +13,16 @@ import {
   ParseIntPipe,
   Patch,
   UseGuards,
+  StreamableFile,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { TransactionsService } from './services/transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
@@ -36,23 +44,58 @@ export class TransactionsController {
 
   @Post()
   @ApiOperation({ summary: 'Criar uma nova transação (única ou recorrente)' })
-  @ApiResponse({ status: 201, description: 'Transação criada com sucesso', type: TransactionResponseDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Transação criada com sucesso',
+    type: TransactionResponseDto,
+  })
   create(
     @EffectiveAccountId() effectiveOwnerId: string,
     @Body() createTransactionDto: CreateTransactionDto,
   ) {
-    return this.transactionsService.create(effectiveOwnerId, createTransactionDto);
+    return this.transactionsService.create(
+      effectiveOwnerId,
+      createTransactionDto,
+    );
   }
 
   @Get()
-  @ApiOperation({ summary: 'Listar transações do usuário por mês/ano com filtros' })
-  @ApiQuery({ name: 'month', required: true, description: 'Mês (1-12)', example: 2 })
+  @ApiOperation({
+    summary: 'Listar transações do usuário por mês/ano com filtros',
+  })
+  @ApiQuery({
+    name: 'month',
+    required: true,
+    description: 'Mês (1-12)',
+    example: 2,
+  })
   @ApiQuery({ name: 'year', required: true, description: 'Ano', example: 2026 })
-  @ApiQuery({ name: 'bankAccountId', required: false, description: 'Filtrar por conta bancária (UUID)' })
-  @ApiQuery({ name: 'type', required: false, enum: TransactionType, description: 'Filtrar por tipo' })
-  @ApiQuery({ name: 'isPaid', required: false, description: 'Filtrar por status de pagamento' })
-  @ApiQuery({ name: 'title', required: false, description: 'Buscar por título' })
-  @ApiResponse({ status: 200, description: 'Lista de transações do período', type: [TransactionResponseDto] })
+  @ApiQuery({
+    name: 'bankAccountId',
+    required: false,
+    description: 'Filtrar por conta bancária (UUID)',
+  })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    enum: TransactionType,
+    description: 'Filtrar por tipo',
+  })
+  @ApiQuery({
+    name: 'isPaid',
+    required: false,
+    description: 'Filtrar por status de pagamento',
+  })
+  @ApiQuery({
+    name: 'title',
+    required: false,
+    description: 'Buscar por título',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de transações do período',
+    type: [TransactionResponseDto],
+  })
   findAll(
     @EffectiveAccountId() effectiveOwnerId: string,
     @Query('month', ParseIntPipe) month: number,
@@ -73,10 +116,69 @@ export class TransactionsController {
     });
   }
 
+  @Get('export')
+  @ApiOperation({ summary: 'Exportar transações para planilha Excel' })
+  @ApiQuery({
+    name: 'month',
+    required: true,
+    description: 'Mês (1-12)',
+    example: 2,
+  })
+  @ApiQuery({ name: 'year', required: true, description: 'Ano', example: 2026 })
+  @ApiQuery({
+    name: 'bankAccountId',
+    required: false,
+    description: 'Filtrar por conta bancária (UUID)',
+  })
+  @ApiQuery({
+    name: 'type',
+    required: false,
+    enum: TransactionType,
+    description: 'Filtrar por tipo',
+  })
+  @ApiQuery({
+    name: 'isPaid',
+    required: false,
+    description: 'Filtrar por status de pagamento',
+  })
+  @ApiQuery({
+    name: 'title',
+    required: false,
+    description: 'Buscar por título',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Arquivo Excel (.xlsx)',
+  })
+  async export(
+    @EffectiveAccountId() effectiveOwnerId: string,
+    @Query('month', ParseIntPipe) month: number,
+    @Query('year', ParseIntPipe) year: number,
+    @Query('bankAccountId', OptionalParseUuidPipe) bankAccountId?: string,
+    @Query('type', new OptionalParseEnumPipe(TransactionType))
+    type?: TransactionType,
+    @Query('isPaid', OptionalParseBooleanPipe) isPaid?: boolean,
+    @Query('title') title?: string,
+  ): Promise<StreamableFile> {
+    const buffer = await this.transactionsService.exportToExcel(
+      effectiveOwnerId,
+      { month, year, bankAccountId, type, isPaid, title },
+    );
+    const filename = `transacoes-${month}-${year}.xlsx`;
+    return new StreamableFile(buffer, {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: `attachment; filename="${filename}"`,
+    });
+  }
+
   @Get(':transactionId')
   @ApiOperation({ summary: 'Buscar uma transação por ID' })
   @ApiParam({ name: 'transactionId', description: 'ID da transação (UUID)' })
-  @ApiResponse({ status: 200, description: 'Dados da transação', type: TransactionResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Dados da transação',
+    type: TransactionResponseDto,
+  })
   findOne(@Param('transactionId', ParseUUIDPipe) transactionId: string) {
     return this.transactionsService.findOne(transactionId);
   }
@@ -84,7 +186,11 @@ export class TransactionsController {
   @Put(':transactionId')
   @ApiOperation({ summary: 'Atualizar uma transação' })
   @ApiParam({ name: 'transactionId', description: 'ID da transação (UUID)' })
-  @ApiResponse({ status: 200, description: 'Transação atualizada com sucesso', type: TransactionResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Transação atualizada com sucesso',
+    type: TransactionResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Transação não encontrada' })
   update(
     @EffectiveAccountId() effectiveOwnerId: string,
@@ -99,11 +205,25 @@ export class TransactionsController {
   }
 
   @Put('recurring/:transactionId')
-  @ApiOperation({ summary: 'Atualizar transação recorrente (única ou futuras)' })
+  @ApiOperation({
+    summary: 'Atualizar transação recorrente (única ou futuras)',
+  })
   @ApiParam({ name: 'transactionId', description: 'ID da transação (UUID)' })
-  @ApiQuery({ name: 'scope', required: false, enum: ['single', 'future'], description: 'Escopo da atualização: apenas esta ou todas futuras' })
-  @ApiResponse({ status: 200, description: 'Transação(ões) recorrente(s) atualizada(s)', type: TransactionResponseDto })
-  @ApiResponse({ status: 404, description: 'Transação não encontrada ou sem grupo de recorrência' })
+  @ApiQuery({
+    name: 'scope',
+    required: false,
+    enum: ['single', 'future'],
+    description: 'Escopo da atualização: apenas esta ou todas futuras',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Transação(ões) recorrente(s) atualizada(s)',
+    type: TransactionResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Transação não encontrada ou sem grupo de recorrência',
+  })
   updateRecurring(
     @EffectiveAccountId() effectiveOwnerId: string,
     @Param('transactionId', ParseUUIDPipe) transactionId: string,
@@ -122,9 +242,20 @@ export class TransactionsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Excluir transação recorrente (única ou futuras)' })
   @ApiParam({ name: 'transactionId', description: 'ID da transação (UUID)' })
-  @ApiQuery({ name: 'scope', required: false, enum: ['single', 'future'], description: 'Escopo da exclusão: apenas esta ou todas futuras' })
-  @ApiResponse({ status: 204, description: 'Transação(ões) recorrente(s) excluída(s)' })
-  @ApiResponse({ status: 404, description: 'Transação não encontrada ou sem grupo de recorrência' })
+  @ApiQuery({
+    name: 'scope',
+    required: false,
+    enum: ['single', 'future'],
+    description: 'Escopo da exclusão: apenas esta ou todas futuras',
+  })
+  @ApiResponse({
+    status: 204,
+    description: 'Transação(ões) recorrente(s) excluída(s)',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Transação não encontrada ou sem grupo de recorrência',
+  })
   @UseGuards(CanDeleteGuard)
   removeRecurring(
     @EffectiveAccountId() effectiveOwnerId: string,
@@ -139,15 +270,23 @@ export class TransactionsController {
   }
 
   @Patch('status/:transactionId')
-  @ApiOperation({ summary: 'Alternar status de pagamento da transação (pago/não pago)' })
+  @ApiOperation({
+    summary: 'Alternar status de pagamento da transação (pago/não pago)',
+  })
   @ApiParam({ name: 'transactionId', description: 'ID da transação (UUID)' })
-  @ApiResponse({ status: 200, description: 'Status de pagamento alternado com sucesso' })
+  @ApiResponse({
+    status: 200,
+    description: 'Status de pagamento alternado com sucesso',
+  })
   @ApiResponse({ status: 404, description: 'Transação não encontrada' })
   updateStatus(
     @EffectiveAccountId() effectiveOwnerId: string,
     @Param('transactionId', ParseUUIDPipe) transactionId: string,
   ) {
-    return this.transactionsService.updateStatus(effectiveOwnerId, transactionId);
+    return this.transactionsService.updateStatus(
+      effectiveOwnerId,
+      transactionId,
+    );
   }
 
   @Delete(':transactionId')

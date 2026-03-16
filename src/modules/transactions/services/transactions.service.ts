@@ -1,8 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import { Workbook } from 'exceljs';
 import { CreateTransactionDto } from '../dto/create-transaction.dto';
 import { UpdateTransactionDto } from '../dto/update-transaction.dto';
 import { TransactionsRepository } from '../../../shared/database/repositories/transactions.repository';
+import { PrismaService } from '../../../shared/database/prisma.service';
 import { ValidateBankAccountOwnershipService } from '../../bank-accounts/services/validate-bank-account-ownership.service';
 import { ValidateCategoryOwnershipService } from '../../categories/services/validate-category-ownership.service';
 import { ValidateTransactionOwnershipService } from './validate-transaction-ownership.service';
@@ -15,6 +17,7 @@ const DEFAULT_RECURRENCE_MONTHS = 12;
 export class TransactionsService {
   constructor(
     private readonly transactionsRepository: TransactionsRepository,
+    private readonly prismaService: PrismaService,
     private readonly validateBankAccountOwnershipService: ValidateBankAccountOwnershipService,
     private readonly validateCategoryOwnershipService: ValidateCategoryOwnershipService,
     private readonly validateTransactionOwnershipService: ValidateTransactionOwnershipService,
@@ -43,6 +46,92 @@ export class TransactionsService {
       });
 
     return TransactionMapper.toDomainMany(transactions as any[]);
+  }
+
+  async exportToExcel(
+    userId: string,
+    filters: {
+      month: number;
+      year: number;
+      bankAccountId?: string;
+      type?: TransactionType;
+      isPaid?: boolean;
+      title?: string;
+    },
+  ): Promise<Buffer> {
+    const transactions = await this.findAllByUserId(userId, filters);
+
+    const categoryIds = [
+      ...new Set(
+        transactions
+          .map((t) => t.categoryId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    const bankAccountIds = [
+      ...new Set(transactions.map((t) => t.bankAccountId)),
+    ];
+
+    const [categories, bankAccounts] = await Promise.all([
+      categoryIds.length > 0
+        ? this.prismaService.category.findMany({
+            where: { id: { in: categoryIds } },
+            select: { id: true, name: true },
+          })
+        : [],
+      this.prismaService.bankAccount.findMany({
+        where: { id: { in: bankAccountIds } },
+        select: { id: true, name: true },
+      }),
+    ]);
+
+    const categoryMap = new Map(
+      (Array.isArray(categories) ? categories : []).map((c) => [c.id, c.name]),
+    );
+    const bankAccountMap = new Map(
+      bankAccounts.map((b) => [b.id, b.name]),
+    );
+
+    const workbook = new Workbook();
+    const worksheet = workbook.addWorksheet('Transações', {
+      headerFooter: { firstHeader: 'Transações' },
+    });
+
+    worksheet.columns = [
+      { header: 'Data', key: 'date', width: 12 },
+      { header: 'Título', key: 'title', width: 30 },
+      { header: 'Valor', key: 'value', width: 14 },
+      { header: 'Tipo', key: 'type', width: 12 },
+      { header: 'Pago', key: 'isPaid', width: 8 },
+      { header: 'Categoria', key: 'category', width: 20 },
+      { header: 'Conta', key: 'bankAccount', width: 20 },
+    ];
+
+    worksheet.getRow(1).font = { bold: true };
+
+    for (const t of transactions) {
+      const date = new Date(t.date);
+      const dateStr = date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      });
+      worksheet.addRow({
+        date: dateStr,
+        title: t.name,
+        value: t.value,
+        type: t.type === TransactionType.INCOME ? 'Receita' : 'Despesa',
+        isPaid: t.isPaid ? 'Sim' : 'Não',
+        category: t.categoryId ? categoryMap.get(t.categoryId) ?? '' : '',
+        bankAccount: bankAccountMap.get(t.bankAccountId) ?? '',
+      });
+    }
+
+    const valueCol = worksheet.getColumn('value');
+    valueCol.numFmt = '"R$ "#,##0.00';
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
   }
 
   findOne(transactionId: string) {
