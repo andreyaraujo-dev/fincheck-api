@@ -75,6 +75,69 @@ export class TransactionsRepository {
     });
   }
 
+  findPaidUntilDate(userId: string, endDate: Date, bankAccountId?: string) {
+    return this.prismaService.transaction.findMany({
+      where: {
+        userId,
+        date: { lte: endDate },
+        isPaid: true,
+        ...(bankAccountId && { bankAccountId }),
+      },
+      select: {
+        bankAccountId: true,
+        type: true,
+        value: true,
+        categoryId: true,
+      },
+    });
+  }
+
+  findMonthTransactions(
+    userId: string,
+    month: number,
+    year: number,
+    bankAccountId?: string,
+  ) {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 1);
+    return this.prismaService.transaction.findMany({
+      where: {
+        userId,
+        date: { gte: startDate, lt: endDate },
+        isPaid: true,
+        ...(bankAccountId && { bankAccountId }),
+      },
+      select: {
+        type: true,
+        value: true,
+        categoryId: true,
+        recurrenceGroupId: true,
+        recurrenceEndDate: true,
+      },
+    });
+  }
+
+  findRecurringTemplates(userId: string) {
+    return this.prismaService.transaction.findMany({
+      where: {
+        userId,
+        recurrenceGroupId: { not: null },
+      },
+      select: {
+        recurrenceGroupId: true,
+        recurrenceFrequency: true,
+        recurrenceEndDate: true,
+        value: true,
+        type: true,
+        bankAccountId: true,
+        categoryId: true,
+        name: true,
+        date: true,
+      },
+      orderBy: [{ recurrenceGroupId: 'asc' }, { date: 'asc' }],
+    });
+  }
+
   async findManyWithNormalizedSearch(params: {
     userId: string;
     month: number;

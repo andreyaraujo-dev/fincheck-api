@@ -24,9 +24,12 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { TransactionsService } from './services/transactions.service';
+import { SimulationService } from './services/simulation.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { TransactionResponseDto } from './dto/transaction-response.dto';
+import { SimulateQueryDto } from './dto/simulate-query.dto';
+import { SimulationResponseDto } from './dto/simulation-response.dto';
 import { EffectiveAccountId } from '../../shared/decorators/effective-account-id';
 import { EffectiveAccountGuard } from '../../shared/guards/effective-account.guard';
 import { CanDeleteGuard } from '../../shared/guards/can-delete.guard';
@@ -40,7 +43,10 @@ import { OptionalParseBooleanPipe } from '../../shared/pipes/optional-parse-bool
 @Controller('transactions')
 @UseGuards(EffectiveAccountGuard)
 export class TransactionsController {
-  constructor(private readonly transactionsService: TransactionsService) {}
+  constructor(
+    private readonly transactionsService: TransactionsService,
+    private readonly simulationService: SimulationService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Criar uma nova transação (única ou recorrente)' })
@@ -169,6 +175,22 @@ export class TransactionsController {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       disposition: `attachment; filename="${filename}"`,
     });
+  }
+
+  @Get('simulate')
+  @ApiOperation({
+    summary: 'Simular impacto de evento financeiro no fluxo de caixa',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Projeção base e simulada com impacto em orçamentos e metas',
+    type: SimulationResponseDto,
+  })
+  simulate(
+    @EffectiveAccountId() effectiveOwnerId: string,
+    @Query() query: SimulateQueryDto,
+  ) {
+    return this.simulationService.run(effectiveOwnerId, query);
   }
 
   @Get(':transactionId')
