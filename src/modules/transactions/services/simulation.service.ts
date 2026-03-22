@@ -296,12 +296,19 @@ export class SimulationService {
             income += simulation.value;
             simulatedDelta = simulation.value;
           } else {
-            if (
-              simulation.entrada !== undefined &&
+            const useParcelCalculation =
+              (simulation.entrada !== undefined ||
+                (simulation.juros !== undefined && simulation.juros > 0)) &&
               simulation.parcels &&
-              simulation.parcels > 0
-            ) {
-              if (month === simMonth && year === simYear) {
+              simulation.parcels > 0;
+
+            if (useParcelCalculation) {
+              if (
+                month === simMonth &&
+                year === simYear &&
+                simulation.entrada !== undefined &&
+                simulation.entrada > 0
+              ) {
                 expense += simulation.entrada;
                 simulatedDelta -= simulation.entrada;
               }
@@ -309,7 +316,11 @@ export class SimulationService {
               const monthsOfParcels = simulation.parcels;
               const monthsFromStart =
                 (year - simYear) * 12 + (month - simMonth);
-              if (monthsFromStart >= 1 && monthsFromStart <= monthsOfParcels) {
+              const parcelStart = simulation.entrada && simulation.entrada > 0 ? 1 : 0;
+              if (
+                monthsFromStart >= parcelStart &&
+                monthsFromStart < parcelStart + monthsOfParcels
+              ) {
                 expense += parcelValue;
                 simulatedDelta -= parcelValue;
               }
@@ -336,10 +347,7 @@ export class SimulationService {
         }
       }
 
-      const isFirstMonth = i === 0;
-      if (!isFirstMonth) {
-        balance = balance + income - expense;
-      }
+      balance = balance + income - expense;
       result.push({
         month,
         year,
@@ -355,14 +363,18 @@ export class SimulationService {
   }
 
   private computeParcelValue(query: SimulateQueryDto): number {
+    // value é o valor por parcela (DTO); total = value * parcels
+    const totalValue = query.parcels ? query.value * query.parcels : query.value;
+    const remaining = totalValue - (query.entrada ?? 0);
+
     if (query.juros !== undefined && query.juros > 0 && query.parcels) {
-      const P = query.value - (query.entrada ?? 0);
+      const P = remaining;
       const i = query.juros / 100;
       const n = query.parcels;
       if (i === 0) return P / n;
       return (P * (i * Math.pow(1 + i, n))) / (Math.pow(1 + i, n) - 1);
     }
-    return query.parcels ? query.value / query.parcels : query.value;
+    return query.parcels && query.parcels > 0 ? remaining / query.parcels : query.value;
   }
 
   private computeBudgetImpact(
@@ -428,27 +440,33 @@ export class SimulationService {
           (proj.year === simDate.getFullYear() &&
             proj.month >= simDate.getMonth() + 1);
         if (isActive) {
-          if (
-            query.entrada !== undefined &&
+          const useParcelCalculation =
+            (query.entrada !== undefined ||
+              (query.juros !== undefined && query.juros > 0)) &&
             query.parcels &&
-            query.parcels > 0
-          ) {
+            query.parcels > 0;
+
+          if (useParcelCalculation) {
             if (
               proj.month === simDate.getMonth() + 1 &&
-              proj.year === simDate.getFullYear()
+              proj.year === simDate.getFullYear() &&
+              query.entrada !== undefined &&
+              query.entrada > 0
             ) {
               byCat.set(
                 query.categoryId,
-                (byCat.get(query.categoryId) ?? 0) + (query.entrada ?? 0),
+                (byCat.get(query.categoryId) ?? 0) + query.entrada,
               );
             }
             const parcelValue = this.computeParcelValue(query);
             const monthsFromStart =
               (proj.year - simDate.getFullYear()) * 12 +
               (proj.month - (simDate.getMonth() + 1));
+            const parcelStart =
+              query.entrada && query.entrada > 0 ? 1 : 0;
             if (
-              monthsFromStart >= 1 &&
-              monthsFromStart <= (query.parcels ?? 0)
+              monthsFromStart >= parcelStart &&
+              monthsFromStart < parcelStart + (query.parcels ?? 0)
             ) {
               byCat.set(
                 query.categoryId,
