@@ -1,6 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { GoalStatus, GoalImportance, GoalPriority } from '../entities/goal.entity';
+import {
+  GoalStatus,
+  GoalImportance,
+  GoalPriority,
+} from '../entities/goal.entity';
 import { GoalOperationType } from '../entities/goal-operation.entity';
+import { TransactionType } from 'src/modules/transactions/entities/transaction';
 
 class GoalCategoryDto {
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
@@ -11,10 +16,16 @@ class GoalCategoryDto {
 
   @ApiProperty({ example: 'travel' })
   icon: string;
+
+  @ApiProperty({ enum: TransactionType, example: TransactionType.EXPENSE })
+  type: TransactionType;
 }
 
 export class GoalResponseDto {
-  @ApiProperty({ description: 'ID da meta', example: '550e8400-e29b-41d4-a716-446655440000' })
+  @ApiProperty({
+    description: 'ID da meta',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
   id: string;
 
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440001' })
@@ -26,16 +37,22 @@ export class GoalResponseDto {
   @ApiProperty({ description: 'Nome da meta', example: 'Viagem para Europa' })
   name: string;
 
-  @ApiPropertyOptional({ description: 'Descrição da meta', example: 'Juntar dinheiro para viagem em julho' })
+  @ApiPropertyOptional({
+    description: 'Descrição da meta',
+    example: 'Juntar dinheiro para viagem em julho',
+  })
   description?: string;
 
-  @ApiProperty({ description: 'Valor alvo', example: 15000.00 })
+  @ApiProperty({ description: 'Valor alvo', example: 15000.0 })
   targetValue: number;
 
-  @ApiProperty({ description: 'Valor atual acumulado', example: 5200.00 })
+  @ApiProperty({ description: 'Valor atual acumulado', example: 5200.0 })
   currentValue: number;
 
-  @ApiProperty({ description: 'Data limite', example: '2026-12-31T00:00:00.000Z' })
+  @ApiProperty({
+    description: 'Data limite',
+    example: '2026-12-31T00:00:00.000Z',
+  })
   dueDate: string;
 
   @ApiProperty({ enum: GoalStatus, example: GoalStatus.IN_PROGRESS })
@@ -66,16 +83,23 @@ class OperationBankAccountDto {
 }
 
 export class GoalOperationResponseDto {
-  @ApiProperty({ description: 'ID da operação', example: '550e8400-e29b-41d4-a716-446655440000' })
+  @ApiProperty({
+    description: 'ID da operação',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
   id: string;
 
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440001' })
   goalId: string;
 
-  @ApiProperty({ description: 'Tipo da operação', enum: GoalOperationType, example: GoalOperationType.DEPOSIT })
+  @ApiProperty({
+    description: 'Tipo da operação',
+    enum: GoalOperationType,
+    example: GoalOperationType.DEPOSIT,
+  })
   type: GoalOperationType;
 
-  @ApiProperty({ description: 'Valor da operação', example: 500.00 })
+  @ApiProperty({ description: 'Valor da operação', example: 500.0 })
   value: number;
 
   @ApiPropertyOptional({ example: '550e8400-e29b-41d4-a716-446655440002' })
@@ -84,7 +108,10 @@ export class GoalOperationResponseDto {
   @ApiPropertyOptional({ example: '550e8400-e29b-41d4-a716-446655440003' })
   transactionId?: string;
 
-  @ApiPropertyOptional({ description: 'Descrição da operação', example: 'Depósito mensal' })
+  @ApiPropertyOptional({
+    description: 'Descrição da operação',
+    example: 'Depósito mensal',
+  })
   description?: string;
 
   @ApiProperty({ example: '2026-02-20T14:00:00.000Z' })
