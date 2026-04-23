@@ -88,9 +88,7 @@ export class TransactionsService {
     const categoryMap = new Map(
       (Array.isArray(categories) ? categories : []).map((c) => [c.id, c.name]),
     );
-    const bankAccountMap = new Map(
-      bankAccounts.map((b) => [b.id, b.name]),
-    );
+    const bankAccountMap = new Map(bankAccounts.map((b) => [b.id, b.name]));
 
     const workbook = new Workbook();
     const worksheet = workbook.addWorksheet('Transações', {
@@ -122,7 +120,7 @@ export class TransactionsService {
         value: t.value,
         type: t.type === TransactionType.INCOME ? 'Receita' : 'Despesa',
         isPaid: t.isPaid ? 'Sim' : 'Não',
-        category: t.categoryId ? categoryMap.get(t.categoryId) ?? '' : '',
+        category: t.categoryId ? (categoryMap.get(t.categoryId) ?? '') : '',
         bankAccount: bankAccountMap.get(t.bankAccountId) ?? '',
       });
     }
@@ -241,46 +239,212 @@ export class TransactionsService {
       throw new NotFoundException('Transaction not found');
     }
 
-    if (scope === 'single') {
-      const { name, type, value, bankAccountId, categoryId, isPaid } =
-        updateTransactionDto;
+    const {
+      name,
+      type,
+      value,
+      bankAccountId,
+      categoryId,
+      isPaid,
+      date,
+      recurrenceEndDate: newEndDateStr,
+      recurrenceFrequency: newFrequency,
+    } = updateTransactionDto;
 
-      return this.transactionsRepository.update({
-        where: { id: transactionId },
-        data: {
-          name,
-          type,
-          value,
-          bankAccountId,
-          categoryId,
-          isPaid,
-        },
-      });
-    }
+    const needsGroupId =
+      scope === 'future' ||
+      newEndDateStr !== undefined ||
+      newFrequency !== undefined;
 
-    // scope === 'future': atualizar esta e todas as futuras do grupo
-    if (!transaction.recurrenceGroupId) {
+    if (needsGroupId && !transaction.recurrenceGroupId) {
       throw new NotFoundException(
         'Transaction does not belong to a recurrence group',
       );
     }
 
-    const { name, type, value, bankAccountId, categoryId, isPaid } =
-      updateTransactionDto;
+    const groupId = transaction.recurrenceGroupId!;
+    const frequencyChanged =
+      newFrequency !== undefined &&
+      newFrequency !== transaction.recurrenceFrequency;
 
-    const data: Record<string, any> = {};
-    if (name !== undefined) data.name = name;
-    if (type !== undefined) data.type = type;
-    if (value !== undefined) data.value = value;
-    if (bankAccountId !== undefined) data.bankAccountId = bankAccountId;
-    if (categoryId !== undefined) data.categoryId = categoryId;
-    if (isPaid !== undefined) data.isPaid = isPaid;
+    await this.prismaService.$transaction(async (tx) => {
+      // Normalizar novo término (fim do dia, inclusive)
+      let parsedNewEndDate: Date | null = null;
+      if (newEndDateStr !== undefined) {
+        parsedNewEndDate = new Date(newEndDateStr);
+        parsedNewEndDate.setHours(23, 59, 59, 999);
+      }
 
-    return this.transactionsRepository.updateManyByGroupId(
-      transaction.recurrenceGroupId,
-      transaction.date,
-      data,
-    );
+      // ---------------------------------------------------------------
+      // Frequência mudou → substituir a grade inteira de ocorrências
+      // ---------------------------------------------------------------
+      if (frequencyChanged) {
+        const allTx = await tx.transaction.findMany({
+          where: { recurrenceGroupId: groupId },
+          orderBy: { date: 'asc' },
+        });
+
+        const startDate = new Date(allTx[0].date);
+
+        let effectiveEnd: Date;
+        if (parsedNewEndDate) {
+          effectiveEnd = parsedNewEndDate;
+        } else if (transaction.recurrenceEndDate) {
+          effectiveEnd = new Date(transaction.recurrenceEndDate);
+        } else {
+          effectiveEnd = new Date(startDate);
+          effectiveEnd.setMonth(
+            effectiveEnd.getMonth() + DEFAULT_RECURRENCE_MONTHS,
+          );
+        }
+
+        const maxEnd = new Date(startDate);
+        maxEnd.setMonth(maxEnd.getMonth() + DEFAULT_RECURRENCE_MONTHS);
+        const cappedEnd = new Date(
+          Math.min(effectiveEnd.getTime(), maxEnd.getTime()),
+        );
+
+        const newDates = this.generateRecurrenceDates(
+          startDate,
+          newFrequency!,
+          cappedEnd,
+        );
+
+        const newEndDateForGroup =
+          parsedNewEndDate ?? transaction.recurrenceEndDate ?? null;
+
+        const commonOverride = {
+          recurrenceFrequency: newFrequency!,
+          recurrenceEndDate: newEndDateForGroup,
+          ...(name !== undefined && { name }),
+          ...(type !== undefined && { type }),
+          ...(value !== undefined && { value }),
+          ...(bankAccountId !== undefined && { bankAccountId }),
+          ...(categoryId !== undefined && { categoryId }),
+        };
+
+        // Atualizar existentes por posição (preserva isPaid)
+        for (let i = 0; i < Math.min(newDates.length, allTx.length); i++) {
+          await tx.transaction.update({
+            where: { id: allTx[i].id },
+            data: { date: newDates[i], ...commonOverride },
+          });
+        }
+
+        // Criar novas ocorrências se a nova grade for maior
+        const template = allTx[0];
+        for (let i = allTx.length; i < newDates.length; i++) {
+          await tx.transaction.create({
+            data: {
+              userId: template.userId,
+              bankAccountId: bankAccountId ?? template.bankAccountId,
+              categoryId: categoryId ?? template.categoryId ?? undefined,
+              name: name ?? template.name,
+              type: type ?? template.type,
+              value: value ?? template.value,
+              date: newDates[i],
+              isPaid: false,
+              recurrenceFrequency: newFrequency!,
+              recurrenceEndDate: newEndDateForGroup,
+              recurrenceGroupId: groupId,
+            },
+          });
+        }
+
+        // Apagar excesso se a nova grade for menor
+        if (allTx.length > newDates.length) {
+          const toDelete = allTx.slice(newDates.length).map((t) => t.id);
+          await tx.transaction.deleteMany({
+            where: { id: { in: toDelete } },
+          });
+        }
+
+        return;
+      }
+
+      // ---------------------------------------------------------------
+      // Término mudou → atualizar grupo inteiro e apagar excedentes
+      // ---------------------------------------------------------------
+      if (parsedNewEndDate !== null) {
+        await tx.transaction.updateMany({
+          where: { recurrenceGroupId: groupId },
+          data: { recurrenceEndDate: parsedNewEndDate },
+        });
+        await tx.transaction.deleteMany({
+          where: {
+            recurrenceGroupId: groupId,
+            date: { gt: parsedNewEndDate },
+          },
+        });
+      }
+
+      // ---------------------------------------------------------------
+      // Data (date) com delta — respeita scope
+      // ---------------------------------------------------------------
+      if (date !== undefined) {
+        const newDate = new Date(date);
+        if (scope === 'single') {
+          await tx.transaction.update({
+            where: { id: transactionId },
+            data: { date: newDate },
+          });
+        } else {
+          const anchorDate = new Date(transaction.date);
+          const deltaMs = newDate.getTime() - anchorDate.getTime();
+
+          const futureTx = await tx.transaction.findMany({
+            where: { recurrenceGroupId: groupId, date: { gte: anchorDate } },
+            orderBy: { date: 'asc' },
+          });
+
+          for (const ft of futureTx) {
+            await tx.transaction.update({
+              where: { id: ft.id },
+              data: {
+                date: new Date(new Date(ft.date).getTime() + deltaMs),
+              },
+            });
+          }
+        }
+      }
+
+      // ---------------------------------------------------------------
+      // Demais campos — respeitam scope
+      // isPaid é individual por parcela; nunca propagado via future
+      // ---------------------------------------------------------------
+      const otherData: Record<string, unknown> = {};
+      if (name !== undefined) otherData.name = name;
+      if (type !== undefined) otherData.type = type;
+      if (value !== undefined) otherData.value = value;
+      if (bankAccountId !== undefined) otherData.bankAccountId = bankAccountId;
+      if (categoryId !== undefined) otherData.categoryId = categoryId;
+
+      if (scope === 'single') {
+        const singleData: Record<string, unknown> = { ...otherData };
+        if (isPaid !== undefined) singleData.isPaid = isPaid;
+
+        if (Object.keys(singleData).length > 0) {
+          await tx.transaction.update({
+            where: { id: transactionId },
+            data: singleData,
+          });
+        }
+      } else {
+        if (Object.keys(otherData).length === 0) return;
+
+        await tx.transaction.updateMany({
+          where: {
+            recurrenceGroupId: groupId,
+            date: { gte: transaction.date },
+          },
+          data: otherData,
+        });
+      }
+    });
+
+    return this.transactionsRepository.findFirst({
+      where: { id: transactionId },
+    });
   }
 
   async removeRecurrenceGroup(
