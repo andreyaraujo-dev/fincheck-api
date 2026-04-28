@@ -32,6 +32,8 @@ export class TransactionsService {
       type?: TransactionType;
       isPaid?: boolean;
       title?: string;
+      categoryId?: string;
+      isRecurrent?: boolean;
     },
   ) {
     const transactions =
@@ -43,6 +45,8 @@ export class TransactionsService {
         type: filters.type,
         isPaid: filters.isPaid,
         title: filters.title,
+        categoryId: filters.categoryId,
+        isRecurrent: filters.isRecurrent,
       });
 
     return TransactionMapper.toDomainMany(transactions as any[]);

@@ -146,8 +146,20 @@ export class TransactionsRepository {
     type?: string;
     isPaid?: boolean;
     title?: string;
+    categoryId?: string;
+    isRecurrent?: boolean;
   }) {
-    const { userId, month, year, bankAccountId, type, isPaid, title } = params;
+    const {
+      userId,
+      month,
+      year,
+      bankAccountId,
+      type,
+      isPaid,
+      title,
+      categoryId,
+      isRecurrent,
+    } = params;
 
     // Construir a query SQL com unaccent
     let query = `
@@ -181,6 +193,19 @@ export class TransactionsRepository {
     if (title) {
       query += ` AND unaccent(LOWER(name)) LIKE unaccent(LOWER($${paramIndex}))`;
       queryParams.push(`%${title}%`);
+      paramIndex++;
+    }
+
+    if (categoryId) {
+      query += ` AND category_id = $${paramIndex}::uuid`;
+      queryParams.push(categoryId);
+      paramIndex++;
+    }
+
+    if (isRecurrent !== undefined) {
+      query += isRecurrent
+        ? ` AND recurrence_frequency IS NOT NULL`
+        : ` AND recurrence_frequency IS NULL`;
     }
 
     query += ` ORDER BY date DESC`;

@@ -97,6 +97,16 @@ export class TransactionsController {
     required: false,
     description: 'Buscar por título',
   })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    description: 'Filtrar por categoria (UUID)',
+  })
+  @ApiQuery({
+    name: 'isRecurrent',
+    required: false,
+    description: 'Filtrar por transações recorrentes',
+  })
   @ApiResponse({
     status: 200,
     description: 'Lista de transações do período',
@@ -111,6 +121,8 @@ export class TransactionsController {
     type?: TransactionType,
     @Query('isPaid', OptionalParseBooleanPipe) isPaid?: boolean,
     @Query('title') title?: string,
+    @Query('categoryId', OptionalParseUuidPipe) categoryId?: string,
+    @Query('isRecurrent', OptionalParseBooleanPipe) isRecurrent?: boolean,
   ) {
     return this.transactionsService.findAllByUserId(effectiveOwnerId, {
       month,
@@ -119,6 +131,8 @@ export class TransactionsController {
       type,
       isPaid,
       title,
+      categoryId,
+      isRecurrent,
     });
   }
 
